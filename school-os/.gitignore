@@ -1,0 +1,42 @@
+# ---- Databases & runtime data (NEVER commit real student PII) ----
+data/
+product/data/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# ---- Backups & communication outbox (runtime artifacts) ----
+backups/
+product/backups/
+
+# ---- Build artifacts ----
+dist/
+campusgrid_dist/
+campusgrid/dist/
+node_modules/
+
+# ---- Environment & secrets ----
+.env
+.env.local
+.env.*.local
+
+# ---- Python ----
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+
+# ---- Node/React tooling ----
+campusgrid/node_modules/
+
+# ---- Screenshots & generated reports ----
+screenshots/
+
+# ---- Editor/tooling ----
+.serena/
+.DS_Store
+Thumbs.db

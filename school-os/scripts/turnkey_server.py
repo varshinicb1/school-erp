@@ -4,6 +4,14 @@ Combines:
 1. REST API (Auth, School Profile, Gateways, Students, Bulk Importer, Attendance, TC, Backups)
 2. Embedded SQLite ACID Database
 3. Static Web Server hosting the compiled CampusGrid React UI on the SAME PORT.
+
+Security model (P0 remediation):
+- Every /api/v1/* endpoint except /health, /auth/login and /auth/logout requires
+  a valid Bearer session token.
+- Demo backdoor tokens / demo_role login exist ONLY when SCHOOL_OS_DEMO_MODE=1.
+- Sessions expire after SCHOOL_OS_SESSION_TTL_HOURS hours (default 12).
+- Static file serving is jailed to the dist directory (no path traversal).
+- Login is rate-limited per client IP.
 """
 
 import os
@@ -12,6 +20,8 @@ import json
 import sqlite3
 import mimetypes
 import shutil
+import secrets
+import time
 from datetime import datetime
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
@@ -24,7 +34,8 @@ if PRODUCT_DIR not in sys.path:
     sys.path.insert(0, PRODUCT_DIR)
 
 from school_india.database.sqlite_db import (
-    get_connection, initialize_database, hash_password, verify_password, DB_PATH
+    get_connection, initialize_database, hash_password, verify_password,
+    needs_rehash, DB_PATH
 )
 from school_india.government_data.readiness_service import GovernmentDataReadinessService
 from school_india.examination.configurable_evaluator import (
@@ -42,27 +53,94 @@ else:
 BACKUP_DIR = os.path.abspath(os.path.join(BASE_DIR, "backups", "daily_snapshots"))
 OUTBOX_DIR = os.path.abspath(os.path.join(BASE_DIR, "backups", "communication_outbox"))
 
-# In-memory active session tokens: token -> user_dict
-ACTIVE_SESSIONS = {}
+# ---------------------------------------------------------------------------
+# Configuration & session management
+# ---------------------------------------------------------------------------
+DEMO_MODE = os.environ.get("SCHOOL_OS_DEMO_MODE", "").strip().lower() in ("1", "true", "yes")
+SESSION_TTL_SECONDS = int(os.environ.get("SCHOOL_OS_SESSION_TTL_HOURS", "12")) * 3600
+LOGIN_RATE_LIMIT = 10          # max attempts ...
+LOGIN_RATE_WINDOW = 60.0       # ... per this many seconds, per client IP
+
+ACTIVE_SESSIONS = {}  # token -> {"user": dict, "expires_at": float}
+
+
+class SessionStore:
+    """In-memory session store with expiry and safe defaults."""
+
+    @staticmethod
+    def create(user_data):
+        token = f"sess_{secrets.token_hex(32)}"
+        ACTIVE_SESSIONS[token] = {
+            "user": user_data,
+            "expires_at": time.time() + SESSION_TTL_SECONDS,
+        }
+        return token
+
+    @staticmethod
+    def get(token):
+        if not token:
+            return None
+        entry = ACTIVE_SESSIONS.get(token)
+        if not entry:
+            return None
+        if entry["expires_at"] < time.time():
+            ACTIVE_SESSIONS.pop(token, None)
+            return None
+        return entry["user"]
+
+    @staticmethod
+    def drop(token):
+        ACTIVE_SESSIONS.pop(token, None)
+
+    @staticmethod
+    def purge_expired():
+        now = time.time()
+        expired = [t for t, e in ACTIVE_SESSIONS.items() if e["expires_at"] < now]
+        for t in expired:
+            ACTIVE_SESSIONS.pop(t, None)
+
 
 def seed_default_sessions():
-    """Seed default session tokens for instant demo access."""
-    ACTIVE_SESSIONS["admin-token"] = {
-        "id": 1, "username": "admin", "role": "Admin",
-        "full_name": "Dr. Radhika Sharma (Principal)", "assigned_section": "All"
-    }
-    ACTIVE_SESSIONS["teacher-token"] = {
-        "id": 2, "username": "teacher", "role": "Teacher",
-        "full_name": "Aditya Mehta (Grade 10 Lead)", "assigned_section": "Grade 10A"
-    }
-    ACTIVE_SESSIONS["parent-token"] = {
-        "id": 3, "username": "parent", "role": "Parent",
-        "full_name": "Mr. Rajesh Mehta (Aarav's Guardian)", "assigned_section": "Grade 8A"
-    }
-    ACTIVE_SESSIONS["accountant-token"] = {
-        "id": 4, "username": "accountant", "role": "Accountant",
-        "full_name": "S. Venkat Rao (Accounts Desk)", "assigned_section": "Accounts"
-    }
+    """Seed default session tokens for instant demo access.
+
+    ONLY active when SCHOOL_OS_DEMO_MODE=1. These tokens bypass authentication
+    entirely and must never exist in a real deployment.
+    """
+    if not DEMO_MODE:
+        return
+    demo_users = [
+        ("admin-token", {"id": 1, "username": "admin", "role": "Admin",
+                         "full_name": "Dr. Radhika Sharma (Principal)", "assigned_section": "All"}),
+        ("teacher-token", {"id": 2, "username": "teacher", "role": "Teacher",
+                           "full_name": "Aditya Mehta (Grade 10 Lead)", "assigned_section": "Grade 10A"}),
+        ("parent-token", {"id": 3, "username": "parent", "role": "Parent",
+                          "full_name": "Mr. Rajesh Mehta (Aarav's Guardian)", "assigned_section": "Grade 8A"}),
+        ("accountant-token", {"id": 4, "username": "accountant", "role": "Accountant",
+                              "full_name": "S. Venkat Rao (Accounts Desk)", "assigned_section": "Accounts"}),
+    ]
+    for token, user in demo_users:
+        ACTIVE_SESSIONS[token] = {"user": user, "expires_at": time.time() + 365 * 24 * 3600}
+
+# Endpoints reachable without a Bearer token.
+PUBLIC_API_PATHS = {"/api/v1/health", "/api/v1/auth/login", "/api/v1/auth/logout"}
+
+_LOGIN_ATTEMPTS = {}  # client_ip -> list of timestamps
+
+
+def _rate_limit_key(self):
+    return self.client_address[0] if self.client_address else "unknown"
+
+
+def _login_allowed(ip):
+    now = time.time()
+    attempts = [t for t in _LOGIN_ATTEMPTS.get(ip, []) if now - t < LOGIN_RATE_WINDOW]
+    _LOGIN_ATTEMPTS[ip] = attempts
+    return len(attempts) < LOGIN_RATE_LIMIT
+
+
+def _record_login_attempt(ip):
+    _LOGIN_ATTEMPTS.setdefault(ip, []).append(time.time())
+
 
 class TurnkeyHandler(BaseHTTPRequestHandler):
     def _send_cors_headers(self):
@@ -89,8 +167,26 @@ class TurnkeyHandler(BaseHTTPRequestHandler):
         auth_hdr = self.headers.get("Authorization", "")
         if auth_hdr.startswith("Bearer "):
             token = auth_hdr[7:].strip()
-            return ACTIVE_SESSIONS.get(token)
+            SessionStore.purge_expired()
+            return SessionStore.get(token)
         return None
+
+    def _require_auth(self):
+        """Auth middleware for API routes. Returns the user dict, or None after
+        sending a 401 response."""
+        user = self._get_auth_user()
+        if user is None:
+            # Drain any unread request body before responding. Closing a
+            # connection with unread inbound data makes Windows send a TCP RST
+            # and the client loses the 401 response (WinError 10053).
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                if length > 0:
+                    self.rfile.read(length)
+            except Exception:
+                pass
+            self._send_json(401, {"error": "Unauthorized: valid Bearer session token required"})
+        return user
 
     def _read_json_body(self):
         length = int(self.headers.get("Content-Length", 0))
@@ -106,6 +202,8 @@ class TurnkeyHandler(BaseHTTPRequestHandler):
 
         # 1. API ROUTES
         if path.startswith("/api/v1/"):
+            if path not in PUBLIC_API_PATHS and self._require_auth() is None:
+                return
             return self._handle_api_get(path, parsed)
 
         # 2. STATIC ASSETS (CampusGrid Dist)
@@ -182,7 +280,7 @@ class TurnkeyHandler(BaseHTTPRequestHandler):
                 if q:
                     pattern = f"%{q}%"
                     cursor.execute("""
-                    SELECT * FROM students 
+                    SELECT * FROM students
                     WHERE student_name LIKE ? OR admission_number LIKE ? OR class_name LIKE ? OR fee_status LIKE ?
                     LIMIT ?;
                     """, (pattern, pattern, pattern, pattern, limit))
@@ -286,8 +384,8 @@ class TurnkeyHandler(BaseHTTPRequestHandler):
                        COALESCE(m.max_marks, 100) as max_marks,
                        COALESCE(m.grade, 'Pending') as grade
                 FROM students s
-                LEFT JOIN marks_records m ON m.admission_number = s.admission_number 
-                                         AND m.subject = ? 
+                LEFT JOIN marks_records m ON m.admission_number = s.admission_number
+                                         AND m.subject = ?
                                          AND m.examination = ?
                 WHERE s.class_name = ? AND s.section = ?
                 ORDER BY s.admission_number ASC
@@ -319,8 +417,11 @@ class TurnkeyHandler(BaseHTTPRequestHandler):
                     })
                 return self._send_json(200, {"snapshots": snapshots})
 
-            # Download Live Backup Database
+            # Download Live Backup Database (Admin-only)
             if path == "/api/v1/backup/download":
+                user = self._get_auth_user()
+                if not user or user.get("role") not in ("Admin", "Principal"):
+                    return self._send_json(403, {"error": "Forbidden: Admin role required for database download"})
                 if os.path.exists(DB_PATH):
                     self.send_response(200)
                     self.send_header("Content-Type", "application/x-sqlite3")
@@ -344,36 +445,59 @@ class TurnkeyHandler(BaseHTTPRequestHandler):
         if not path.startswith("/api/v1/"):
             return self._send_json(404, {"error": "Invalid POST route"})
 
+        # Auth middleware: everything except login/logout requires a session.
+        if path not in PUBLIC_API_PATHS and self._require_auth() is None:
+            return
+
         conn = get_connection()
         cursor = conn.cursor()
-        body = self._read_json_body()
 
         try:
+            body = self._read_json_body()
+
             # 1. Auth Login
             if path == "/api/v1/auth/login":
+                ip = _rate_limit_key(self)
+                if not _login_allowed(ip):
+                    return self._send_json(429, {"error": "Too many login attempts. Try again later."})
+                _record_login_attempt(ip)
+
                 username = body.get("username", "").strip()
                 password = body.get("password", "").strip()
-                
-                # Check predefined demo quick-login tokens
+
+                # Demo quick-login: only when the server was explicitly started
+                # with SCHOOL_OS_DEMO_MODE=1. Never available in production.
                 if body.get("demo_role"):
+                    if not DEMO_MODE:
+                        return self._send_json(403, {"error": "demo_role login is disabled (demo mode is off)"})
                     role = body.get("demo_role")
                     token_map = {"Admin": "admin-token", "Teacher": "teacher-token", "Parent": "parent-token", "Accountant": "accountant-token"}
                     token = token_map.get(role, "admin-token")
-                    user = ACTIVE_SESSIONS[token]
-                    return self._send_json(200, {"status": "SUCCESS", "token": token, "user": user})
+                    entry = ACTIVE_SESSIONS.get(token)
+                    if not entry:
+                        return self._send_json(403, {"error": "demo_role login is disabled (demo mode is off)"})
+                    return self._send_json(200, {"status": "SUCCESS", "token": token, "user": entry["user"]})
 
                 cursor.execute("SELECT * FROM users WHERE username = ? AND is_active = 1;", (username,))
                 row = cursor.fetchone()
                 if not row or not verify_password(password, row["password_hash"], row["salt"]):
                     return self._send_json(401, {"error": "Invalid username or password"})
 
-                token = f"sess_{secrets.token_hex(16)}"
+                # Transparently upgrade legacy SHA-256 hashes to PBKDF2 on login.
+                if needs_rehash(row["password_hash"]):
+                    new_hash, new_salt = hash_password(password)
+                    cursor.execute(
+                        "UPDATE users SET password_hash = ?, salt = ? WHERE id = ?;",
+                        (new_hash, new_salt, row["id"]),
+                    )
+                    conn.commit()
+
                 user_data = {
                     "id": row["id"], "username": row["username"], "role": row["role"],
                     "full_name": row["full_name"], "email": row["email"],
                     "phone": row["phone"], "assigned_section": row["assigned_section"]
                 }
-                ACTIVE_SESSIONS[token] = user_data
+                token = SessionStore.create(user_data)
                 return self._send_json(200, {"status": "SUCCESS", "token": token, "user": user_data})
 
             # 2. Auth Logout
@@ -381,7 +505,7 @@ class TurnkeyHandler(BaseHTTPRequestHandler):
                 auth_hdr = self.headers.get("Authorization", "")
                 if auth_hdr.startswith("Bearer "):
                     token = auth_hdr[7:].strip()
-                    ACTIVE_SESSIONS.pop(token, None)
+                    SessionStore.drop(token)
                 return self._send_json(200, {"status": "LOGGED_OUT"})
 
             # 3. Attendance Submit
@@ -466,7 +590,7 @@ class TurnkeyHandler(BaseHTTPRequestHandler):
                         row_errors.append("Missing Admission Number")
                     if not name:
                         row_errors.append("Missing Student Name")
-                    
+
                     # Validate PEN if present
                     if pen:
                         res = GovernmentDataReadinessService.validate_pen_format(pen)
@@ -622,11 +746,17 @@ class TurnkeyHandler(BaseHTTPRequestHandler):
     def do_PUT(self):
         parsed = urlparse(self.path)
         path = parsed.path
+
+        # Auth middleware: all PUT routes require a session.
+        if path.startswith("/api/v1/") and self._require_auth() is None:
+            return
+
         conn = get_connection()
         cursor = conn.cursor()
-        body = self._read_json_body()
 
         try:
+            body = self._read_json_body()
+
             # 1. Update School Profile
             if path == "/api/v1/school/profile":
                 now = datetime.now().isoformat()
@@ -671,15 +801,23 @@ class TurnkeyHandler(BaseHTTPRequestHandler):
             self.wfile.write(b"<h1>School OS API Running. Frontend dist not built yet.</h1>")
             return
 
+        dist_root = os.path.realpath(DIST_DIR)
+
         rel_path = path.lstrip("/")
         if not rel_path or rel_path == "index.html":
-            target = os.path.join(DIST_DIR, "index.html")
+            target = os.path.join(dist_root, "index.html")
         else:
-            target = os.path.join(DIST_DIR, rel_path)
+            # Path traversal guard: resolve the real path and ensure it stays
+            # inside the dist directory. Blocks "../", absolute paths, symlinks
+            # escaping the root, and URL-encoded variants (decoded by urlparse).
+            candidate = os.path.realpath(os.path.join(dist_root, rel_path))
+            if candidate != dist_root and not candidate.startswith(dist_root + os.sep):
+                return self._send_json(403, {"error": "Forbidden"})
+            target = candidate
 
         # Fallback to SPA index.html for client-side navigation
         if not os.path.exists(target) or os.path.isdir(target):
-            target = os.path.join(DIST_DIR, "index.html")
+            target = os.path.join(dist_root, "index.html")
 
         mime, _ = mimetypes.guess_type(target)
         if not mime:
@@ -704,6 +842,7 @@ def run_server(port=5050):
     print(f"  INDIAN SCHOOL OS — TURNKEY SELF-HOSTED SERVER ONLINE     ")
     print(f"  Access ERP at: http://localhost:{port}                  ")
     print(f"  REST API Base: http://localhost:{port}/api/v1/          ")
+    print(f"  Demo mode: {'ENABLED (insecure tokens active)' if DEMO_MODE else 'disabled (real login required)'}")
     print(f"==========================================================")
     server.serve_forever()
 

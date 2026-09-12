@@ -7,9 +7,14 @@ Provides full persistence for schools, users, students, fees, attendance, settin
 import os
 import sqlite3
 import hashlib
+import hmac
 import json
 import secrets
 from datetime import datetime
+
+# PBKDF2 parameters (OWASP-recommended minimum for SHA-256)
+PBKDF2_ITERATIONS = 200_000
+PBKDF2_HASH_PREFIX = f"pbkdf2$sha256${PBKDF2_ITERATIONS}$"
 
 DB_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "data"))
 DB_PATH = os.path.join(DB_DIR, "school_erp.db")
@@ -25,14 +30,49 @@ def get_connection():
     return conn
 
 def hash_password(password: str, salt: str = None) -> tuple[str, str]:
+    """Hash a password with PBKDF2-HMAC-SHA256 (200k iterations).
+
+    Returns (password_hash, salt) where password_hash embeds the algorithm,
+    iteration count and salt so legacy hashes can be identified and upgraded.
+    The salt is also returned for storage in the users.salt column.
+    """
     if not salt:
         salt = secrets.token_hex(16)
-    hashed = hashlib.sha256((salt + password).encode("utf-8")).hexdigest()
+    dk = hashlib.pbkdf2_hmac(
+        "sha256", password.encode("utf-8"), bytes.fromhex(salt), PBKDF2_ITERATIONS
+    )
+    hashed = f"{PBKDF2_HASH_PREFIX}{salt}${dk.hex()}"
     return hashed, salt
 
+
+def needs_rehash(password_hash: str) -> bool:
+    """True if the stored hash uses a legacy/weak scheme (e.g. plain SHA-256)."""
+    return not (password_hash or "").startswith(PBKDF2_HASH_PREFIX)
+
+
 def verify_password(password: str, hashed: str, salt: str) -> bool:
-    check_hash, _ = hash_password(password, salt)
-    return check_hash == hashed
+    """Constant-time password verification supporting both hash formats.
+
+    - New: pbkdf2$sha256$<iterations>$<salt>$<hash>
+    - Legacy: plain sha256(salt + password) hexdigest (upgraded on next login)
+    """
+    if not hashed:
+        return False
+    try:
+        if hashed.startswith(PBKDF2_HASH_PREFIX):
+            parts = hashed.split("$")
+            if len(parts) != 5:
+                return False
+            _, _, iterations, stored_salt, stored_dk = parts
+            dk = hashlib.pbkdf2_hmac(
+                "sha256", password.encode("utf-8"), bytes.fromhex(stored_salt), int(iterations)
+            )
+            return hmac.compare_digest(dk.hex(), stored_dk)
+        # Legacy single-round SHA-256
+        check_hash = hashlib.sha256((salt + password).encode("utf-8")).hexdigest()
+        return hmac.compare_digest(check_hash, hashed)
+    except (ValueError, TypeError):
+        return False
 
 def initialize_database():
     """Initializes all database tables and indexes if they do not exist."""
