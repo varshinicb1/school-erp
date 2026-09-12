@@ -83,11 +83,6 @@ const feeAging = [
   { label: '31+ days', amount: '₹83,200', count: 13 },
 ]
 
-const announcements = [
-  'Bus route 4 delayed by 12 minutes',
-  'Parent-teacher meeting slots published',
-  'Science fair registration closes today',
-]
 
 const API_BASE = (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.port === '3000')) ? 'http://127.0.0.1:5050' : ''
 
@@ -605,25 +600,6 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
     setActivity('Session locked. Authenticate to continue.')
   }
 
-  const handleAction = (label: string) => {
-    if (label === 'Fast Attendance (<20s)') {
-      setShowAttendanceModal(true)
-      return
-    }
-    if (label === 'New admission') {
-      setShowAdmissionModal(true)
-      return
-    }
-    if (label === 'Record payment') {
-      handleOpenFeeModal()
-      return
-    }
-    if (label === 'Send notice') {
-      setShowNoticeModal(true)
-      return
-    }
-    setActivity(`${label} opened`)
-  }
 
   const handleSaveAdmission = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
@@ -799,67 +775,101 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
     <main className="app-shell">
       <aside className="sidebar" aria-label="Primary navigation">
         <div className="brand">
-          <span className="brand-mark">CG</span>
-          <span>CampusGrid</span>
+          <div className="brand-crest">
+            <GraduationCap size={20} />
+          </div>
+          <div className="brand-info">
+            <span className="brand-title">Vidyuth OS</span>
+            <span className="brand-sub">CBSE · Affil 3630142</span>
+          </div>
         </div>
 
+        <span className="sidebar-section-title">Menu & Modules</span>
         <nav className="nav-list">
-          {navItems.map(({ label, icon: Icon }) => (
-            <button
-              className={activeNav === label ? 'nav-item active' : 'nav-item'}
-              key={label}
-              onClick={() => setActiveNav(label)}
-              type="button"
-            >
-              <Icon size={17} />
-              <span>{label}</span>
-            </button>
-          ))}
+          {navItems.map(({ label, icon: Icon }) => {
+            const badges: Record<string, string> = { Students: `${liveStudents.length}`, Fees: '₹59L', Messages: '4', Staff: `${staffList.length}` }
+            return (
+              <button
+                className={activeNav === label ? 'nav-item active' : 'nav-item'}
+                key={label}
+                onClick={() => setActiveNav(label)}
+                type="button"
+              >
+                <Icon size={17} />
+                <span>{label}</span>
+                {badges[label] && <span className="nav-badge">{badges[label]}</span>}
+              </button>
+            )
+          })}
         </nav>
 
-        <button className="settings-button" onClick={() => setShowSettingsModal(true)} type="button">
-          <Settings size={17} />
-          <span>School Settings</span>
-        </button>
+        <div className="sidebar-footer">
+          <div className="school-status-pill">
+            <span className="status-dot-pulse" />
+            <span>SQLite Live (WAL Mode)</span>
+          </div>
+          <button className="settings-button" onClick={() => setShowSettingsModal(true)} type="button">
+            <Settings size={16} />
+            <span>School Settings & Setup</span>
+          </button>
+        </div>
       </aside>
 
       <section className="workspace">
         <header className="topbar">
-          <div>
-            <h1>{activeNav}</h1>
-            <p>Academic year {schoolProfile.academic_year} · {schoolProfile.name}, {schoolProfile.city}</p>
+          <div className="topbar-left">
+            <div className="topbar-breadcrumbs">
+              <span>CampusGrid</span>
+              <span>/</span>
+              <span style={{ color: 'var(--text-main)', fontWeight: 650 }}>{activeNav}</span>
+            </div>
+            <h1 className="topbar-title">{activeNav}</h1>
+          </div>
+
+          <div className="topbar-center">
+            <div className="search-box-wrapper" onClick={() => setShowPalette(true)}>
+              <label className="search-box">
+                <Search size={15} />
+                <input
+                  aria-label="Search institutional database"
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Search students, admission #, fee vouchers (Ctrl+K)..."
+                  value={query}
+                />
+                <kbd className="kbd-shortcut">⌘K</kbd>
+              </label>
+            </div>
           </div>
 
           <div className="topbar-actions">
-            <div className="search-box-wrapper" onClick={() => setShowPalette(true)}>
-              <label className="search-box">
-                <Search size={16} />
-                <input
-                  aria-label="Search students"
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search students, classes, actions..."
-                  value={query}
-                />
-                <kbd className="kbd-shortcut">Ctrl K</kbd>
-              </label>
+            {/* Segmented Persona Switcher */}
+            <div className="persona-switcher-bar">
+              {[
+                { role: 'Principal', label: 'Principal', icon: ShieldCheck },
+                { role: 'Teacher', label: 'Teacher', icon: BookOpen },
+                { role: 'Accountant', label: 'Accounts', icon: CircleDollarSign },
+                { role: 'Parent', label: 'Parent', icon: Users },
+              ].map((item) => (
+                <button
+                  key={item.role}
+                  className={`persona-switch-btn ${persona === item.role ? 'active' : ''}`}
+                  onClick={() => handleQuickLogin(item.role as PersonaRole)}
+                  type="button"
+                  title={`Switch to ${item.label} Workspace`}
+                >
+                  <item.icon size={13} />
+                  <span>{item.label}</span>
+                </button>
+              ))}
             </div>
-            <select
-              aria-label="Active persona role"
-              className="persona-selector"
-              onChange={(e) => {
-                const p = e.target.value as PersonaRole
-                handleQuickLogin(p)
-              }}
-              value={persona}
-            >
-              <option value="Principal">Role: Principal</option>
-              <option value="Teacher">Role: Teacher</option>
-              <option value="Parent">Role: Parent</option>
-              <option value="Accountant">Role: Accountant</option>
-            </select>
-            <button className="icon-button" type="button" aria-label="Notifications">
+
+            <div className="topbar-divider" />
+
+            <button className="icon-button" onClick={() => setShowNoticeModal(true)} type="button" aria-label="Notifications" title="Broadcast Notices">
               <Bell size={17} />
+              <span className="notif-badge-dot" />
             </button>
+
             <button
               className="icon-button"
               id="btn-lock-session"
@@ -870,49 +880,67 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
               title={user ? 'Lock session (logout)' : 'Authenticate session'}
               type="button"
             >
-              {user ? <ShieldCheck size={16} /> : <Key size={16} />}
+              {user ? <ShieldCheck size={16} style={{ color: 'var(--emerald)' }} /> : <Key size={16} />}
             </button>
-            <button className="profile-button" onClick={() => setShowLockModal(true)} type="button">
-              <span>{persona.slice(0, 2).toUpperCase()}</span>
-              <ChevronDown size={15} />
+
+            <button className="profile-button" onClick={() => setShowLockModal(true)} type="button" title="Switch User">
+              <div className="profile-avatar">
+                {persona.slice(0, 2).toUpperCase()}
+              </div>
+              <div className="profile-meta">
+                <strong>{user?.full_name?.split(' ')[0] || persona}</strong>
+                <small>{persona}</small>
+              </div>
+              <ChevronDown size={14} style={{ color: 'var(--text-light)', marginLeft: '2px' }} />
             </button>
           </div>
         </header>
 
         <div className="page-body">
-        <div className="mobile-brand">
-          <span className="brand-mark">CG</span>
-          <span style={{ fontWeight: 650, fontSize: 14, color: 'var(--text-strong)' }}>CampusGrid</span>
-        </div>
-
         <section className="command-row" aria-label="Quick actions">
-          {[
-            { label: 'Fast Attendance (<20s)', icon: Zap },
-            { label: 'New admission', icon: Plus },
-            { label: 'Record payment', icon: CreditCard },
-            { label: 'Send notice', icon: Send },
-          ].map(({ label, icon: Icon }) => (
-            <button
-              className={label === 'Fast Attendance (<20s)' ? 'action-button primary-highlight' : 'action-button'}
-              key={label}
-              onClick={() => handleAction(label)}
-              type="button"
-            >
-              <Icon size={16} />
-              <span>{label}</span>
-            </button>
-          ))}
-          <span className="activity-note">{activity}</span>
+          <button className="action-btn-primary" onClick={() => setShowAttendanceModal(true)} type="button">
+            <Zap size={15} />
+            <span>Fast Roll Call (&lt;20s)</span>
+          </button>
+          <button className="action-btn-soft action-btn-emerald" onClick={() => setShowAdmissionModal(true)} type="button">
+            <Plus size={15} />
+            <span>New Admission</span>
+          </button>
+          <button className="action-btn-soft action-btn-amber" onClick={() => handleOpenFeeModal()} type="button">
+            <CreditCard size={15} />
+            <span>Record Payment</span>
+          </button>
+          <button className="action-btn-soft" onClick={() => setShowNoticeModal(true)} type="button">
+            <Send size={15} />
+            <span>Send Notice</span>
+          </button>
+          <div className="activity-badge-strip">
+            <span className="pulse-circle" />
+            <span>{activity}</span>
+          </div>
         </section>
 
         <section className="metric-grid" aria-label="School summary">
-          {liveMetrics.map((metric) => (
-            <article className="metric-card" key={metric.label}>
-              <span>{metric.label}</span>
-              <strong>{metric.value}</strong>
-              <small>{metric.detail}</small>
-            </article>
-          ))}
+          {liveMetrics.map((metric, idx) => {
+            const icons = [Users, ClipboardCheck, CircleDollarSign, GraduationCap]
+            const trends = ['+14 this term', 'Today 94.2%', '88.4% collected', '2 substitutions']
+            const Icon = icons[idx % icons.length]
+            return (
+              <article className="metric-card" key={metric.label}>
+                <div className="metric-header">
+                  <span className="metric-label">{metric.label}</span>
+                  <div className="metric-icon-box">
+                    <Icon size={16} />
+                  </div>
+                </div>
+                <div className="metric-value">{metric.value}</div>
+                <div className="metric-footer">
+                  <span className="metric-trend-pill positive">{trends[idx % trends.length]}</span>
+                  <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>{metric.detail}</span>
+                </div>
+              </article>
+            )
+          })}
         </section>
 
         {/* ─── NAV-DRIVEN VIEWS ─────────────────────────────────────────── */}
@@ -1179,164 +1207,194 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
                 </div>
               </section>
             ) : (
-              <section className="content-grid">
-                <article className="panel attendance-panel">
-                  <div className="panel-heading">
-                    <div>
-                      <h2>Attendance</h2>
-                      <p>Roll-call status by grade</p>
-                    </div>
-                    <div className="segmented" aria-label="Attendance period">
-                      {['Today', 'Week'].map((item) => (
-                        <button
-                          className={period === item ? 'selected' : ''}
-                          key={item}
-                          onClick={() => setPeriod(item)}
-                          type="button"
-                        >
-                          {item}
-                        </button>
-                      ))}
-                    </div>
+              <section className="persona-view">
+                {/* Hero Executive Banner */}
+                <div className="persona-hero-card">
+                  <div className="persona-hero-left">
+                    <span className="persona-hero-badge">
+                      <ShieldCheck size={13} />
+                      Principal Executive Command · Academic Year {schoolProfile.academic_year}
+                    </span>
+                    <h2>{schoolProfile.name}</h2>
+                    <p>Affiliation #3630142 · UDISE+ 36190500124 · Knowledge Corridor, Financial District, Hyderabad</p>
                   </div>
-                  <div className="attendance-table">
-                    <div className="compact-row compact-head">
-                      <span>Grade</span>
-                      <span>Sections</span>
-                      <span>Absent</span>
-                      <span>Late</span>
-                      <span>Rate</span>
-                    </div>
-                    {attendanceRows.map((row) => (
-                      <div className="compact-row" key={row.grade}>
-                        <span>{row.grade}</span>
-                        <span>{row.submitted}/{row.sections}</span>
-                        <span>{row.absent}</span>
-                        <span>{row.late}</span>
-                        <span className="rate-cell">
-                          <i style={{ width: `${row.rate}%` }} />
-                          <strong>{row.rate}%</strong>
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </article>
-
-                <article className="panel fees-panel">
-                  <div className="panel-heading">
-                    <div>
-                      <h2>Fees due</h2>
-                      <p>Aging and follow-up workload</p>
-                    </div>
-                    <CircleDollarSign size={20} />
-                  </div>
-                  <div className="aging-list">
-                    {feeAging.map((item, index) => (
-                      <div className="aging-row" key={item.label}>
-                        <span className={`severity severity-${index + 1}`} />
-                        <div>
-                          <strong>{item.label}</strong>
-                          <small>{item.count} invoices</small>
-                        </div>
-                        <b>{item.amount}</b>
-                      </div>
-                    ))}
-                  </div>
-                </article>
-
-                <article className="panel timetable-panel">
-                  <div className="panel-heading">
-                    <div>
-                      <h2>Timetable</h2>
-                      <p>Rooms and substitutions</p>
-                    </div>
-                    <CalendarDays size={20} />
-                  </div>
-                  <div className="timeline-list">
-                    {timetable.map((slot) => (
-                      <div className="timeline-item" key={`${slot.time}-${slot.className}`}>
-                        <time>{slot.time}</time>
-                        <div>
-                          <strong>{slot.className}</strong>
-                          <span>{slot.room} · {slot.teacher}</span>
-                        </div>
-                        <em>{slot.note}</em>
-                      </div>
-                    ))}
-                  </div>
-                </article>
-
-                <article className="panel announcement-panel">
-                  <div className="panel-heading">
-                    <div>
-                      <h2>Announcements</h2>
-                      <p>Published and scheduled notices</p>
-                    </div>
-                    <MessageSquareText size={20} />
-                  </div>
-                  <div className="notice-list">
-                    {announcements.map((notice) => (
-                      <button key={notice} type="button">{notice}</button>
-                    ))}
-                  </div>
-                </article>
-
-                <article className="panel student-panel">
-                  <div className="panel-heading">
-                    <div>
-                      <h2>Student Directory</h2>
-                      <p>{filteredStudents.length} records in view</p>
-                    </div>
-                    <button className="text-button" onClick={() => setQuery('Due')} type="button">
-                      Fees due
+                  <div className="persona-hero-actions">
+                    <button className="btn-hero-action" onClick={() => setShowAttendanceModal(true)} type="button">
+                      <Zap size={14} /> Roll-Call Audit
+                    </button>
+                    <button className="btn-hero-action" onClick={() => handleExportReport('CBSE Institutional Summary')} type="button">
+                      <FileBarChart size={14} /> Board Compliance Export
                     </button>
                   </div>
-                  <div className="student-table" role="table" aria-label="Student Directory">
-                    <div className="table-row table-head" role="row">
-                      <span role="columnheader">ID</span>
-                      <span role="columnheader">Student</span>
-                      <span role="columnheader">Class</span>
-                      <span role="columnheader">Attendance</span>
-                      <span role="columnheader">Balance</span>
-                      <span role="columnheader">Status</span>
-                      <span role="columnheader">Action</span>
-                    </div>
-                    {filteredStudents.map((student) => (
-                      <div className="table-row" role="row" key={student.id}>
-                        <span role="cell">{student.id}</span>
-                        <span role="cell">{student.name}</span>
-                        <span role="cell">{student.grade}</span>
-                        <span role="cell">{student.attendance}</span>
-                        <span role="cell">{student.balance}</span>
-                        <span className={`status ${student.status.toLowerCase()}`} role="cell">
-                          {student.status}
-                        </span>
-                        <span role="cell" style={{ display: 'flex', gap: '4px' }}>
-                          <button
-                            className="tc-action-btn"
-                            onClick={() => {
-                              setTcTargetStudent(student)
-                              setShowTCModal(true)
-                            }}
-                            type="button"
-                          >
-                            Issue TC
-                          </button>
-                          {student.balance !== '₹0' && (
-                            <button
-                              className="tc-action-btn"
-                              onClick={() => handleOpenFeeModal(student)}
-                              type="button"
-                              style={{ background: '#fef3c7', borderColor: '#fde047', color: '#854d0e' }}
-                            >
-                              Collect
-                            </button>
-                          )}
+                </div>
+
+                <div className="content-grid">
+                  {/* Left Column: Pending Approvals & Exceptions */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <article className="panel">
+                      <div className="panel-heading">
+                        <div>
+                          <h2>Pending Institutional Approvals</h2>
+                          <p>3 administrative matters awaiting principal sign-off</p>
+                        </div>
+                        <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '9999px', background: 'var(--amber-bg)', color: 'var(--amber-text)', border: '1px solid var(--amber-border)' }}>
+                          3 Actionable
                         </span>
                       </div>
-                    ))}
+                      <div className="timeline-list">
+                        <div className="timeline-item">
+                          <time style={{ color: 'var(--primary)' }}>RTE</time>
+                          <div>
+                            <strong>RTE Section 12 Fee Waiver: Priya Reddy (Grade 6A)</strong>
+                            <span>100% State government subsidized quota · Documentation verified by accounts</span>
+                          </div>
+                          <em>
+                            <button className="tc-action-btn" onClick={() => setActivity('Approved RTE waiver for Priya Reddy (Grade 6A)')} type="button" style={{ background: 'var(--emerald-bg)', borderColor: 'var(--emerald-border)', color: 'var(--emerald-text)' }}>
+                              <Check size={12} /> Approve
+                            </button>
+                          </em>
+                        </div>
+
+                        <div className="timeline-item">
+                          <time style={{ color: 'var(--amber)' }}>LEAVE</time>
+                          <div>
+                            <strong>Faculty Leave Application: Ms. Anita Verma (English)</strong>
+                            <span>Medical Leave requested for 14–16 September (3 days) · Cover assigned to Mr. Sharma</span>
+                          </div>
+                          <em>
+                            <button className="tc-action-btn" onClick={() => setActivity('Approved leave for Ms. Anita Verma')} type="button" style={{ background: 'var(--emerald-bg)', borderColor: 'var(--emerald-border)', color: 'var(--emerald-text)' }}>
+                              <Check size={12} /> Approve
+                            </button>
+                          </em>
+                        </div>
+
+                        <div className="timeline-item">
+                          <time style={{ color: 'var(--rose)' }}>TRANS</time>
+                          <div>
+                            <strong>Transport Fleet Route #4 Delay Advisory</strong>
+                            <span>Gachibowli traffic snarl · Bus delayed by 18 min · 44 parents require notification</span>
+                          </div>
+                          <em>
+                            <button className="tc-action-btn" onClick={() => { setNoticeTarget('All Parents'); setNoticeMessage('Bus Route #4 is running 18 minutes late due to Gachibowli junction traffic congestion.'); setShowNoticeModal(true); }} type="button">
+                              <Send size={12} /> Broadcast SMS
+                            </button>
+                          </em>
+                        </div>
+                      </div>
+                    </article>
+
+                    <article className="panel">
+                      <div className="panel-heading">
+                        <div>
+                          <h2>Chronic Absentees &amp; Drop Risk (Below 75%)</h2>
+                          <p>Mandatory CBSE Board attendance threshold monitoring</p>
+                        </div>
+                        <span className="status due">CBSE Warning</span>
+                      </div>
+                      <div className="timeline-list">
+                        {[
+                          { name: 'Saanvi Sharma', id: 'VIS-2026-0217', grade: 'Grade 6A', pct: '74.2%', days: 14, contact: '+91 98490 22119' },
+                          { name: 'Karthik Varma', id: 'VIS-2026-0389', grade: 'Grade 9B', pct: '71.8%', days: 17, contact: '+91 98490 55412' },
+                        ].map((s) => (
+                          <div className="timeline-item" key={s.id}>
+                            <time style={{ color: 'var(--rose)', fontWeight: 800 }}>{s.pct}</time>
+                            <div>
+                              <strong>{s.name} · {s.grade}</strong>
+                              <span>{s.days} cumulative absences · Guardian: {s.contact}</span>
+                            </div>
+                            <em>
+                              <button className="tc-action-btn" onClick={() => { setNoticeTarget('Grade 10 Parents'); setNoticeMessage(`Urgent: Attendance warning for ${s.name}. Current attendance ${s.pct} is below CBSE minimum.`); setShowNoticeModal(true); }} type="button">
+                                <Send size={11} /> Alert Parent
+                              </button>
+                            </em>
+                          </div>
+                        ))}
+                      </div>
+                    </article>
                   </div>
-                </article>
+
+                  {/* Right Column: Statutory Compliance & Financial Realization */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <article className="panel">
+                      <div className="panel-heading">
+                        <div>
+                          <h2>Statutory &amp; Board Compliance</h2>
+                          <p>Government portal synchronization status</p>
+                        </div>
+                      </div>
+                      <div className="timeline-list">
+                        <div className="timeline-item">
+                          <time style={{ color: 'var(--emerald)' }}>UDISE</time>
+                          <div>
+                            <strong>UDISE+ National Data Sync</strong>
+                            <span>All 546 enrolled student profiles verified and matched</span>
+                          </div>
+                          <em style={{ color: 'var(--emerald)', fontWeight: 700 }}>100% Synced</em>
+                        </div>
+
+                        <div className="timeline-item">
+                          <time style={{ color: 'var(--primary)' }}>APAAR</time>
+                          <div>
+                            <strong>One Nation One Student ID (APAAR / PEN)</strong>
+                            <span>538 cards generated · 8 pending Aadhaar demographic match</span>
+                          </div>
+                          <em style={{ color: 'var(--primary)', fontWeight: 700 }}>98.5% Done</em>
+                        </div>
+
+                        <div className="timeline-item">
+                          <time style={{ color: 'var(--emerald)' }}>SAFETY</time>
+                          <div>
+                            <strong>Fire NOC &amp; Transport Fitness Certificate</strong>
+                            <span>Telangana State Fire Dept &amp; RTO fitness certified</span>
+                          </div>
+                          <em style={{ color: 'var(--emerald)', fontWeight: 700 }}>Valid 2027</em>
+                        </div>
+
+                        <div className="timeline-item">
+                          <time style={{ color: 'var(--amber)' }}>EXAM</time>
+                          <div>
+                            <strong>Periodic Assessment PT-1 Moderation</strong>
+                            <span>Question papers for Grades 6–10 encrypted &amp; locked in vault</span>
+                          </div>
+                          <em style={{ color: 'var(--amber)', fontWeight: 700 }}>Locked</em>
+                        </div>
+                      </div>
+                    </article>
+
+                    <article className="panel">
+                      <div className="panel-heading">
+                        <div>
+                          <h2>Fee Aging &amp; Recovery Pipeline</h2>
+                          <p>₹59,51,000 total pending receivables</p>
+                        </div>
+                        <button className="btn-action-sm" onClick={() => setActiveNav('Fees')} type="button">
+                          Open Fees
+                        </button>
+                      </div>
+                      <div className="timeline-list">
+                        <div className="timeline-item">
+                          <time style={{ color: 'var(--emerald)' }}>0-30d</time>
+                          <div><strong>₹24,50,000 · Current Term Due</strong><span>142 students in grace period</span></div>
+                          <em>Normal</em>
+                        </div>
+                        <div className="timeline-item">
+                          <time style={{ color: 'var(--amber)' }}>31-60d</time>
+                          <div><strong>₹18,20,000 · First Notice Sent</strong><span>88 students with 1 reminder</span></div>
+                          <em style={{ color: 'var(--amber)' }}>Follow-up</em>
+                        </div>
+                        <div className="timeline-item">
+                          <time style={{ color: 'var(--rose)' }}>60d+</time>
+                          <div><strong>₹16,81,000 · Severe Defaulters</strong><span>45 accounts with block pending</span></div>
+                          <em>
+                            <button className="tc-action-btn collect" onClick={() => { setNoticeTarget('Fee Defaulters'); setNoticeMessage('Immediate fee settlement notice: Please clear outstanding tuition fees before term exams.'); setShowNoticeModal(true); }} type="button">
+                              Demand Notice
+                            </button>
+                          </em>
+                        </div>
+                      </div>
+                    </article>
+                  </div>
+                </div>
               </section>
             )}
           </>
@@ -1369,34 +1427,73 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
                   <span role="columnheader">Status</span>
                   <span role="columnheader">Actions</span>
                 </div>
-                {filteredStudents.map((student) => (
-                  <div className="table-row" role="row" key={student.id}>
-                    <span role="cell"><strong>{student.id}</strong></span>
-                    <span role="cell">{student.name}</span>
-                    <span role="cell">{student.grade}</span>
-                    <span role="cell">{student.attendance}</span>
-                    <span role="cell">{student.balance}</span>
-                    <span className={`status ${student.status.toLowerCase()}`} role="cell">{student.status}</span>
-                    <span role="cell" style={{ display: 'flex', gap: '4px' }}>
-                      <button className="tc-action-btn" onClick={() => handleViewReportCard(student.id)} type="button">
-                        <FileBarChart size={12} /> Report Card
-                      </button>
-                      <button className="tc-action-btn" onClick={() => { setTcTargetStudent(student); setShowTCModal(true) }} type="button">
-                        Issue TC
-                      </button>
-                      {student.balance !== '₹0' && (
-                        <button
-                          className="tc-action-btn"
-                          onClick={() => handleOpenFeeModal(student)}
-                          type="button"
-                          style={{ background: '#fef3c7', borderColor: '#fde047', color: '#854d0e' }}
-                        >
-                          Collect
+                {filteredStudents.map((student, sIdx) => {
+                  const avatarColors = [
+                    { bg: '#e0e7ff', text: '#3730a3' },
+                    { bg: '#fef3c7', text: '#92400e' },
+                    { bg: '#ecfdf5', text: '#065f46' },
+                    { bg: '#fce7f3', text: '#831843' },
+                    { bg: '#f3e8ff', text: '#5b21b6' },
+                  ]
+                  const av = avatarColors[sIdx % avatarColors.length]
+                  const initials = student.name.split(' ').map((n: string) => n[0]).slice(0, 2).join('')
+                  return (
+                    <div className="table-row" role="row" key={student.id}>
+                      <span role="cell" style={{ fontFamily: 'JetBrains Mono', fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                        {student.id}
+                      </span>
+                      <span role="cell">
+                        <div className="student-avatar-cell">
+                          <div className="student-avatar" style={{ background: av.bg, color: av.text }}>
+                            {initials}
+                          </div>
+                          <div className="student-info">
+                            <span className="student-name">{student.name}</span>
+                            <span className="student-sub">Roll #{(student as any).roll || (sIdx + 1)} · APAAR Verified</span>
+                          </div>
+                        </div>
+                      </span>
+                      <span role="cell">
+                        <span style={{ fontSize: '11.5px', fontWeight: 650, padding: '2px 8px', borderRadius: '4px', background: 'var(--canvas)', border: '1px solid var(--border)', color: 'var(--text-body)' }}>
+                          {student.grade}
+                        </span>
+                      </span>
+                      <span role="cell">
+                        <div className="rate-cell">
+                          <div className="rate-track">
+                            <div className="rate-fill" style={{ width: student.attendance }} />
+                          </div>
+                          <span className="rate-text">{student.attendance}</span>
+                        </div>
+                      </span>
+                      <span role="cell" style={{ fontWeight: 700, color: student.balance === '₹0' ? 'var(--emerald)' : 'var(--rose)', fontVariantNumeric: 'tabular-nums' }}>
+                        {student.balance}
+                      </span>
+                      <span role="cell">
+                        <span className={`status ${student.status.toLowerCase()}`}>
+                          {student.status}
+                        </span>
+                      </span>
+                      <span role="cell" style={{ display: 'flex', gap: '6px' }}>
+                        <button className="tc-action-btn" onClick={() => handleViewReportCard(student.id)} type="button">
+                          <FileBarChart size={12} /> Report
                         </button>
-                      )}
-                    </span>
-                  </div>
-                ))}
+                        <button className="tc-action-btn" onClick={() => { setTcTargetStudent(student); setShowTCModal(true) }} type="button">
+                          TC
+                        </button>
+                        {student.balance !== '₹0' && (
+                          <button
+                            className="tc-action-btn collect"
+                            onClick={() => handleOpenFeeModal(student)}
+                            type="button"
+                          >
+                            <CreditCard size={12} /> Collect
+                          </button>
+                        )}
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
             </article>
           </section>
@@ -1730,34 +1827,32 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
               <div className="panel-heading">
                 <div><h2>Reports &amp; Analytics</h2><p>Institutional data exports and academic summaries</p></div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px', padding: '8px 0' }}>
+              <div className="reports-grid" style={{ padding: '6px 0' }}>
                 {[
-                  { label: 'Attendance Summary Report', icon: ClipboardCheck, desc: 'Grade-wise daily/monthly roll-call export', color: '#0ea5e9' },
-                  { label: 'Fee Collection Report', icon: CircleDollarSign, desc: 'Receipts, aging, and concession ledger', color: '#10b981' },
-                  { label: 'Student Progress Report', icon: FileBarChart, desc: 'CBSE mark sheets and PT1/PT2 results', color: '#8b5cf6' },
-                  { label: 'Staff Attendance & Payroll', icon: GraduationCap, desc: 'Monthly staff attendance and disbursement', color: '#f59e0b' },
-                  { label: 'TC & Admission Register', icon: Database, desc: 'Issued TCs and new admissions log', color: '#ef4444' },
-                  { label: 'Exam Schedule & Timetable', icon: CalendarDays, desc: 'Scheduled exams and room allocations', color: '#64748b' },
-                  { label: 'SMS / WA Outbox Report', icon: MessageSquareText, desc: 'Communication delivery statistics', color: '#06b6d4' },
-                  { label: 'Database Backup Report', icon: ShieldCheck, desc: 'Snapshot logs and recovery status', color: '#0f5f59' },
+                  { label: 'Attendance Summary Report', icon: ClipboardCheck, desc: 'Grade-wise daily roll-call export', color: '#4f46e5', bg: '#eef2ff' },
+                  { label: 'Fee Collection Ledger', icon: CircleDollarSign, desc: 'Receipts, aging & concession ledger', color: '#10b981', bg: '#ecfdf5' },
+                  { label: 'CBSE Progress Mark Sheets', icon: FileBarChart, desc: 'Official CBSE mark sheets & PT1 grades', color: '#8b5cf6', bg: '#f5f3ff' },
+                  { label: 'Staff Payroll & Attendance', icon: GraduationCap, desc: 'Monthly staff disbursement & leaves', color: '#f59e0b', bg: '#fffbeb' },
+                  { label: 'TC & Admission Register', icon: Database, desc: 'Issued TCs and new admissions log', color: '#ef4444', bg: '#fef2f2' },
+                  { label: 'Exam Schedule & Hall Tickets', icon: CalendarDays, desc: 'Scheduled exams & room seating plan', color: '#0ea5e9', bg: '#f0f9ff' },
+                  { label: 'SMS & WhatsApp Outbox Audit', icon: MessageSquareText, desc: 'Parent communication delivery logs', color: '#06b6d4', bg: '#ecfeff' },
+                  { label: 'Database Backup Snapshots', icon: ShieldCheck, desc: 'SQLite snapshot recovery registry', color: '#0f766e', bg: '#f0fdfa' },
                 ].map((r) => (
                   <button
                     key={r.label}
-                    type="button"
+                    className="report-card-btn"
                     onClick={() => handleExportReport(r.label)}
-                    style={{
-                      display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '8px',
-                      padding: '16px', borderRadius: '10px', border: '1.5px solid var(--border)',
-                      background: 'var(--surface)', cursor: 'pointer', textAlign: 'left',
-                      transition: 'box-shadow 0.15s, border-color 0.15s',
-                    }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = r.color; (e.currentTarget as HTMLElement).style.boxShadow = `0 0 0 3px ${r.color}22` }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.boxShadow = 'none' }}
+                    type="button"
                   >
-                    <r.icon size={22} style={{ color: r.color }} />
-                    <strong style={{ fontSize: '13px', color: 'var(--text)' }}>{r.label}</strong>
-                    <span style={{ fontSize: '12px', color: '#64748b', lineHeight: 1.4 }}>{r.desc}</span>
-                    <span style={{ fontSize: '11px', color: r.color, fontWeight: 600, marginTop: 'auto' }}>Export PDF / CSV →</span>
+                    <div className="report-icon-box" style={{ background: r.bg, color: r.color }}>
+                      <r.icon size={20} />
+                    </div>
+                    <strong className="report-card-title">{r.label}</strong>
+                    <span className="report-card-desc">{r.desc}</span>
+                    <span className="report-card-action" style={{ color: r.color }}>
+                      <span>Download CSV</span>
+                      <ArrowRight size={13} />
+                    </span>
                   </button>
                 ))}
               </div>
