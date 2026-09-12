@@ -91,6 +91,24 @@ const announcements = [
 
 const API_BASE = (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.port === '3000')) ? 'http://127.0.0.1:5050' : ''
 
+// ---- Authentication helpers (session token from the School OS server) ----
+type PersonaRole = 'Principal' | 'Teacher' | 'Parent' | 'Accountant'
+
+const getStoredToken = (): string | null => {
+  try {
+    return localStorage.getItem('sos_token')
+  } catch {
+    return null
+  }
+}
+
+const authHeaders = (): Record<string, string> => {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  const token = getStoredToken()
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  return headers
+}
+
 function App() {
   const [activeNav, setActiveNav] = useState('Dashboard')
   const [query, setQuery] = useState('')
@@ -154,7 +172,7 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
   const [recentReceipts, setRecentReceipts] = useState<any[]>([])
   const [showLockModal, setShowLockModal] = useState(false)
   const [lockUsername, setLockUsername] = useState('admin')
-  const [lockPassword, setLockPassword] = useState('admin123')
+  const [lockPassword, setLockPassword] = useState('')
 
   // Global Ctrl + K Keyboard Shortcut
   useEffect(() => {
@@ -189,9 +207,27 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
     'VIS-2026-0402': 'Present',
   })
 
-  // Live REST API Connection to Backend
+  // Live REST API Connection to Backend (session-validated)
+  const [user, setUser] = useState<any>(null)
+
   useEffect(() => {
-    fetch(`${API_BASE}/api/v1/summary`)
+    // Validate any stored session token with the server before pulling data.
+    if (getStoredToken()) {
+      fetch(`${API_BASE}/api/v1/auth/me`, { headers: authHeaders() })
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error('unauthorized'))))
+        .then((d) => {
+          if (d.user) {
+            setUser(d.user)
+            localStorage.setItem('sos_user', JSON.stringify(d.user))
+          }
+        })
+        .catch(() => {
+          localStorage.removeItem('sos_token')
+          localStorage.removeItem('sos_user')
+        })
+    }
+
+    fetch(`${API_BASE}/api/v1/summary`, { headers: authHeaders() })
       .then((res) => res.json())
       .then((data) => {
         setLiveMetrics([
@@ -205,28 +241,28 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
         // Fallback to local constants
       })
 
-    fetch(`${API_BASE}/api/v1/school/profile`)
+    fetch(`${API_BASE}/api/v1/school/profile`, { headers: authHeaders() })
       .then((res) => res.json())
       .then((data) => {
         if (data.name) setSchoolProfile(data)
       })
       .catch(() => {})
 
-    fetch(`${API_BASE}/api/v1/school/settings`)
+    fetch(`${API_BASE}/api/v1/school/settings`, { headers: authHeaders() })
       .then((res) => res.json())
       .then((data) => {
         if (data) setSystemSettings(data)
       })
       .catch(() => {})
 
-    fetch(`${API_BASE}/api/v1/fees/receipts`)
+    fetch(`${API_BASE}/api/v1/fees/receipts`, { headers: authHeaders() })
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setRecentReceipts(data)
       })
       .catch(() => {})
 
-    fetch(`${API_BASE}/api/v1/students?query=${encodeURIComponent(query)}`)
+    fetch(`${API_BASE}/api/v1/students?query=${encodeURIComponent(query)}`, { headers: authHeaders() })
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data) && data.length > 0) {
@@ -248,7 +284,7 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
     try {
       const res = await fetch(`${API_BASE}/api/v1/school/profile`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify(schoolProfile)
       })
       if (res.ok) {
@@ -268,7 +304,7 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
       })
       const res = await fetch(`${API_BASE}/api/v1/school/settings`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify(payload)
       })
       if (res.ok) {
@@ -297,7 +333,7 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
     try {
       const res = await fetch(`${API_BASE}/api/v1/import/students`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ rows, commit })
       })
       const data = await res.json()
@@ -316,7 +352,7 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
       const res = await fetch(`${API_BASE}/api/v1/backup/create`, { method: 'POST' })
       const data = await res.json()
       setActivity(`Snapshot created: ${data.filename}`)
-      fetch(`${API_BASE}/api/v1/backup/list`)
+      fetch(`${API_BASE}/api/v1/backup/list`, { headers: authHeaders() })
         .then((r) => r.json())
         .then((d) => { if (d.snapshots) setBackupSnapshots(d.snapshots) })
     } catch {
@@ -331,7 +367,7 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
 
   const handleViewReportCard = async (studentId: string = 'VIS-2026-0048') => {
     try {
-      const res = await fetch(`${API_BASE}/api/v1/report-card/${studentId}`)
+      const res = await fetch(`${API_BASE}/api/v1/report-card/${studentId}`, { headers: authHeaders() })
       const data = await res.json()
       if (data && data.scholastic_subjects) {
         setReportCardData(data)
@@ -362,7 +398,7 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
     try {
       const res = await fetch(`${API_BASE}/api/v1/fees/collect`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({
           admission_number: st.id || 'VIS-2026-0048',
           amount: amt,
@@ -397,7 +433,7 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
 
   const handleOpenMarksModal = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/v1/marks/class?class=Grade%2010&section=A&subject=Mathematics&exam=PT1`)
+      const res = await fetch(`${API_BASE}/api/v1/marks/class?class=Grade%2010&section=A&subject=Mathematics&exam=PT1`, { headers: authHeaders() })
       const data = await res.json()
       if (data && Array.isArray(data.students) && data.students.length > 0) {
         setMarksRoster(data.students)
@@ -443,7 +479,7 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
     try {
       const res = await fetch(`${API_BASE}/api/v1/marks/submit`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({
           class: 'Grade 10',
           section: 'A',
@@ -477,10 +513,41 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
     setShowFeeModal(true)
   }
 
-  const handleQuickLogin = (role: 'Principal' | 'Teacher' | 'Parent' | 'Accountant') => {
-    setPersona(role)
-    setShowLockModal(false)
-    setActivity(`Unlocked session as ${role}`)
+  const handleQuickLogin = async (role: PersonaRole, username?: string) => {
+    const uname = (username || lockUsername).trim()
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: uname, password: lockPassword })
+      })
+      const data = await res.json()
+      if (res.ok && data.status === 'SUCCESS' && data.token) {
+        localStorage.setItem('sos_token', data.token)
+        localStorage.setItem('sos_user', JSON.stringify(data.user))
+        setUser(data.user)
+        setPersona(role)
+        setShowLockModal(false)
+        setLockPassword('')
+        setActivity(`Authenticated as ${data.user?.full_name || uname} (${role})`)
+      } else {
+        setActivity(data.error || 'Authentication failed')
+        alert(data.error || 'Invalid username or password')
+      }
+    } catch {
+      alert('Error connecting to authentication service')
+    }
+  }
+
+  const handleLogout = () => {
+    const token = getStoredToken()
+    if (token) {
+      fetch(`${API_BASE}/api/v1/auth/logout`, { method: 'POST', headers: authHeaders() }).catch(() => {})
+    }
+    localStorage.removeItem('sos_token')
+    localStorage.removeItem('sos_user')
+    setUser(null)
+    setActivity('Session locked. Authenticate to continue.')
   }
 
   const handleAction = (label: string) => {
@@ -513,7 +580,7 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
 
     fetch(`${API_BASE}/api/v1/attendance/submit`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify(payload)
     })
       .then((r) => r.json())
@@ -559,7 +626,7 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
       <section className="workspace">
         <header className="topbar">
           <div>
-            <h1>Dashboard</h1>
+            <h1>{activeNav}</h1>
             <p>Academic year {schoolProfile.academic_year} · {schoolProfile.name}, {schoolProfile.city}</p>
           </div>
 
@@ -580,7 +647,13 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
               aria-label="Active persona role"
               className="persona-selector"
               onChange={(e) => {
-                const p = e.target.value as 'Principal' | 'Teacher' | 'Parent' | 'Accountant'
+                const p = e.target.value as PersonaRole
+                if (!user) {
+                  setLockUsername(p === 'Principal' ? 'admin' : p === 'Teacher' ? 'teacher' : p === 'Accountant' ? 'accountant' : 'parent')
+                  setShowLockModal(true)
+                  setActivity(`Role ${p} selected: authenticate to switch`)
+                  return
+                }
                 setPersona(p)
                 setActivity(`Switched role to ${p}`)
               }}
@@ -597,11 +670,14 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
             <button
               className="icon-button"
               id="btn-lock-session"
-              onClick={() => setShowLockModal(true)}
-              title="Lock / Authenticate Session"
+              onClick={() => {
+                if (user) handleLogout()
+                setShowLockModal(true)
+              }}
+              title={user ? 'Lock session (logout)' : 'Authenticate session'}
               type="button"
             >
-              <Key size={16} />
+              {user ? <ShieldCheck size={16} /> : <Key size={16} />}
             </button>
             <button className="profile-button" onClick={() => setShowLockModal(true)} type="button">
               <span>{persona.slice(0, 2).toUpperCase()}</span>
@@ -645,411 +721,471 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
           ))}
         </section>
 
-        {persona === 'Teacher' ? (
-          <section className="persona-view teacher-view">
-            <div className="persona-banner">
-              <h2>👩‍🏫 Teacher Workspace — Classes & Attendance</h2>
-              <p>Welcome back! You have 4 classes scheduled today at Vidyuth International School.</p>
-            </div>
-            <div className="teacher-grid">
-              <div className="panel">
-                <div className="panel-heading">
-                  <div>
-                    <h3>Today's Assigned Classes</h3>
-                    <p>Immediate attendance and mark entry actions</p>
+        {/* ─── NAV-DRIVEN VIEWS ─────────────────────────────────────────── */}
+
+        {activeNav === 'Dashboard' && (
+          <>
+            {persona === 'Teacher' ? (
+              <section className="persona-view teacher-view">
+                <div className="persona-banner">
+                  <h2>👩‍🏫 Teacher Workspace — Classes &amp; Attendance</h2>
+                  <p>Welcome back! You have 4 classes scheduled today at {schoolProfile.name}.</p>
+                </div>
+                <div className="teacher-grid">
+                  <div className="panel">
+                    <div className="panel-heading">
+                      <div>
+                        <h3>Today's Assigned Classes</h3>
+                        <p>Immediate attendance and mark entry actions</p>
+                      </div>
+                    </div>
+                    <div className="teacher-class-list">
+                      {[
+                        { grade: 'Grade 10A', subject: 'Mathematics', time: '08:30 - 09:15', room: 'Room 302', attStatus: 'Pending' },
+                        { grade: 'Grade 9B', subject: 'Mathematics', time: '09:20 - 10:05', room: 'Room 204', attStatus: 'Done (94%)' },
+                        { grade: 'Grade 8C', subject: 'Physics Lab', time: '11:15 - 12:00', room: 'Physics Lab', attStatus: 'Pending' },
+                        { grade: 'Grade 10B', subject: 'Mathematics', time: '14:00 - 14:45', room: 'Room 304', attStatus: 'Pending' },
+                      ].map((c) => (
+                        <div className="teacher-class-item" key={c.grade + c.time}>
+                          <div>
+                            <strong>{c.grade} — {c.subject}</strong>
+                            <small>{c.time} · {c.room}</small>
+                          </div>
+                          <div className="teacher-class-actions">
+                            <span className={`badge-pill ${c.attStatus.includes('Done') ? 'pill-green' : 'pill-yellow'}`}>
+                              {c.attStatus}
+                            </span>
+                            <button
+                              className="btn-action-sm"
+                              onClick={() => setShowAttendanceModal(true)}
+                              type="button"
+                            >
+                              <Zap size={14} />
+                              Roll Call
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="panel">
+                    <div className="panel-heading">
+                      <div>
+                        <h3>Pending Marks Entry</h3>
+                        <p>Term 1 Periodic Test (PT1)</p>
+                      </div>
+                      <button
+                        className="btn-action-sm"
+                        id="btn-teacher-enter-marks"
+                        onClick={handleOpenMarksModal}
+                        type="button"
+                      >
+                        <FileSpreadsheet size={14} />
+                        Enter Marks
+                      </button>
+                    </div>
+                    <div className="timeline-list">
+                      <div className="timeline-item">
+                        <time>PT1</time>
+                        <div>
+                          <strong>Grade 10A — Mathematics</strong>
+                          <span>28 / 38 papers graded</span>
+                        </div>
+                        <em>Due Tomorrow</em>
+                      </div>
+                      <div className="timeline-item">
+                        <time>PT1</time>
+                        <div>
+                          <strong>Grade 9B — Mathematics</strong>
+                          <span>35 / 35 papers graded</span>
+                        </div>
+                        <em style={{ color: '#10b981' }}>Completed</em>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div className="teacher-class-list">
-                  {[
-                    { grade: 'Grade 10A', subject: 'Mathematics', time: '08:30 - 09:15', room: 'Room 302', attStatus: 'Pending' },
-                    { grade: 'Grade 9B', subject: 'Mathematics', time: '09:20 - 10:05', room: 'Room 204', attStatus: 'Done (94%)' },
-                    { grade: 'Grade 8C', subject: 'Physics Lab', time: '11:15 - 12:00', room: 'Physics Lab', attStatus: 'Pending' },
-                    { grade: 'Grade 10B', subject: 'Mathematics', time: '14:00 - 14:45', room: 'Room 304', attStatus: 'Pending' },
-                  ].map((c) => (
-                    <div className="teacher-class-item" key={c.grade + c.time}>
+              </section>
+            ) : persona === 'Parent' ? (
+              <section className="persona-view parent-view">
+                <div className="persona-banner parent-banner">
+                  <h2>👨‍👩‍👧 Parent Portal — Aarav Mehta (Grade 8A)</h2>
+                  <p>Admission No: VIS-2026-0048 · Academic Year 2026-27</p>
+                </div>
+                <div className="content-grid">
+                  <article className="panel">
+                    <div className="panel-heading">
                       <div>
-                        <strong>{c.grade} — {c.subject}</strong>
-                        <small>{c.time} · {c.room}</small>
+                        <h3>Attendance Summary</h3>
+                        <p>Current Term: 96% attendance</p>
                       </div>
-                      <div className="teacher-class-actions">
-                        <span className={`badge-pill ${c.attStatus.includes('Done') ? 'pill-green' : 'pill-yellow'}`}>
-                          {c.attStatus}
-                        </span>
-                        <button 
+                      <ClipboardCheck size={20} />
+                    </div>
+                    <div style={{ padding: '16px 0' }}>
+                      <p>Aarav was present for <strong>88 of 92</strong> school days this term.</p>
+                      <small style={{ color: '#10b981', fontWeight: 600 }}>✓ Meets mandatory 75% CBSE requirement</small>
+                    </div>
+                  </article>
+
+                  <article className="panel">
+                    <div className="panel-heading">
+                      <div>
+                        <h3>Fee Payment Status</h3>
+                        <p>Term 2 Tuition &amp; Transport</p>
+                      </div>
+                      <CircleDollarSign size={20} />
+                    </div>
+                    <div style={{ padding: '16px 0' }}>
+                      <p>All current term dues are <strong>Cleared (₹0 balance)</strong>.</p>
+                      <small style={{ color: '#64748b' }}>Next Term Fee Due Date: 15th October 2026</small>
+                    </div>
+                  </article>
+
+                  <article className="panel">
+                    <div className="panel-heading">
+                      <div>
+                        <h3>Report Card &amp; Results</h3>
+                        <p>Periodic Test 1 (PT1)</p>
+                      </div>
+                      <FileBarChart size={20} />
+                    </div>
+                    <div style={{ padding: '16px 0' }}>
+                      <p>Aggregate Score: <strong>88.0% (Grade A2)</strong></p>
+                      <small>Mathematics: A1 (95%) · Science: A1 (91%) · English: A2 (88%)</small>
+                      <div style={{ marginTop: '14px' }}>
+                        <button
                           className="btn-action-sm"
-                          onClick={() => setShowAttendanceModal(true)}
+                          id="btn-parent-report-card"
+                          onClick={() => handleViewReportCard('VIS-2026-0048')}
                           type="button"
                         >
-                          <Zap size={14} />
-                          Roll Call
+                          <FileBarChart size={14} />
+                          View Official CBSE Mark Sheet
                         </button>
                       </div>
                     </div>
-                  ))}
+                  </article>
                 </div>
-              </div>
-
-              <div className="panel">
-                <div className="panel-heading">
-                  <div>
-                    <h3>Pending Marks Entry</h3>
-                    <p>Term 1 Periodic Test (PT1)</p>
-                  </div>
-                  <button
-                    className="btn-action-sm"
-                    id="btn-teacher-enter-marks"
-                    onClick={handleOpenMarksModal}
-                    type="button"
-                  >
-                    <FileSpreadsheet size={14} />
-                    Enter Marks
-                  </button>
+              </section>
+            ) : persona === 'Accountant' ? (
+              <section className="persona-view accountant-view">
+                <div className="persona-banner accountant-banner">
+                  <h2>💳 Accounts &amp; Fee Reconciliation Center</h2>
+                  <p>{schoolProfile.name} · Daily Collections &amp; Aging Matrix</p>
                 </div>
-                <div className="timeline-list">
-                  <div className="timeline-item">
-                    <time>PT1</time>
-                    <div>
-                      <strong>Grade 10A — Mathematics</strong>
-                      <span>28 / 38 papers graded</span>
+                <div className="content-grid">
+                  <article className="panel fees-panel">
+                    <div className="panel-heading">
+                      <div>
+                        <h2>Collections &amp; Receivables</h2>
+                        <p>Term-wise aging breakdown</p>
+                      </div>
+                      <button
+                        className="btn-action-sm"
+                        id="btn-accountant-collect-fee"
+                        onClick={() => handleOpenFeeModal()}
+                        type="button"
+                      >
+                        <CreditCard size={14} />
+                        Record Payment
+                      </button>
                     </div>
-                    <em>Due Tomorrow</em>
-                  </div>
-                  <div className="timeline-item">
-                    <time>PT1</time>
-                    <div>
-                      <strong>Grade 9B — Mathematics</strong>
-                      <span>35 / 35 papers graded</span>
+                    <div className="aging-list">
+                      {feeAging.map((item, index) => (
+                        <div className="aging-row" key={item.label}>
+                          <span className={`severity severity-${index + 1}`} />
+                          <div>
+                            <strong>{item.label}</strong>
+                            <small>{item.count} invoices</small>
+                          </div>
+                          <b>{item.amount}</b>
+                        </div>
+                      ))}
                     </div>
-                    <em style={{ color: '#10b981' }}>Completed</em>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-        ) : persona === 'Parent' ? (
-          <section className="persona-view parent-view">
-            <div className="persona-banner parent-banner">
-              <h2>👨‍👩‍👧 Parent Portal — Aarav Mehta (Grade 8A)</h2>
-              <p>Admission No: VIS-2026-0048 · Academic Year 2026-27</p>
-            </div>
-            <div className="content-grid">
-              <article className="panel">
-                <div className="panel-heading">
-                  <div>
-                    <h3>Attendance Summary</h3>
-                    <p>Current Term: 96% attendance</p>
-                  </div>
-                  <ClipboardCheck size={20} />
-                </div>
-                <div style={{ padding: '16px 0' }}>
-                  <p>Aarav was present for <strong>88 of 92</strong> school days this term.</p>
-                  <small style={{ color: '#10b981', fontWeight: 600 }}>✓ Meets mandatory 75% CBSE requirement</small>
-                </div>
-              </article>
+                  </article>
 
-              <article className="panel">
-                <div className="panel-heading">
-                  <div>
-                    <h3>Fee Payment Status</h3>
-                    <p>Term 2 Tuition & Transport</p>
-                  </div>
-                  <CircleDollarSign size={20} />
-                </div>
-                <div style={{ padding: '16px 0' }}>
-                  <p>All current term dues are <strong>Cleared (₹0 balance)</strong>.</p>
-                  <small style={{ color: '#64748b' }}>Next Term Fee Due Date: 15th October 2026</small>
-                </div>
-              </article>
+                  <article className="panel">
+                    <div className="panel-heading">
+                      <div>
+                        <h2>Concession Policy Overview</h2>
+                        <p>Registered Fee Schemes</p>
+                      </div>
+                    </div>
+                    <div className="timeline-list">
+                      <div className="timeline-item">
+                        <time>25%</time>
+                        <div>
+                          <strong>Sibling Concession</strong>
+                          <span>42 active student concessions</span>
+                        </div>
+                        <em>Auto-applied</em>
+                      </div>
+                      <div className="timeline-item">
+                        <time>100%</time>
+                        <div>
+                          <strong>RTE Quota Allocation</strong>
+                          <span>28 students enrolled under RTE Section 12</span>
+                        </div>
+                        <em>Govt Subsidized</em>
+                      </div>
+                    </div>
+                  </article>
 
-              <article className="panel">
-                <div className="panel-heading">
-                  <div>
-                    <h3>Report Card & Results</h3>
-                    <p>Periodic Test 1 (PT1)</p>
-                  </div>
-                  <FileBarChart size={20} />
+                  <article className="panel daybook-panel">
+                    <div className="panel-heading">
+                      <div>
+                        <h2>Cashier Day-Book &amp; Issued Receipts</h2>
+                        <p>{recentReceipts.length} collections reconciled today in local database</p>
+                      </div>
+                      <button className="btn-action-sm" onClick={() => handleOpenFeeModal()} type="button">
+                        <CreditCard size={14} />
+                        New Payment
+                      </button>
+                    </div>
+                    <table className="daybook-table">
+                      <thead>
+                        <tr>
+                          <th>Receipt #</th>
+                          <th>Student Details</th>
+                          <th>Payment Mode</th>
+                          <th>Amount Paid</th>
+                          <th>Timestamp</th>
+                          <th>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {recentReceipts.map((r: any) => (
+                          <tr key={r.receipt_number || r.id}>
+                            <td><strong>{r.receipt_number}</strong></td>
+                            <td>
+                              <strong>{r.student_name}</strong>
+                              <small style={{ display: 'block', color: '#64748b' }}>{r.admission_number}</small>
+                            </td>
+                            <td><span className="badge-status" style={{ color: '#0f5f59' }}>{r.payment_mode}</span></td>
+                            <td><strong style={{ color: '#16a34a' }}>₹{Number(r.amount_paid).toLocaleString('en-IN')}</strong></td>
+                            <td>{new Date(r.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</td>
+                            <td>
+                              <button
+                                className="tc-action-btn"
+                                id={`btn-reprint-${r.receipt_number?.replace(/\//g, '-')}`}
+                                onClick={() => handleRePrintReceipt(r)}
+                                type="button"
+                              >
+                                <Printer size={12} />
+                                Re-Print
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </article>
                 </div>
-                <div style={{ padding: '16px 0' }}>
-                  <p>Aggregate Score: <strong>88.0% (Grade A2)</strong></p>
-                  <small>Mathematics: A1 (95%) · Science: A1 (91%) · English: A2 (88%)</small>
-                  <div style={{ marginTop: '14px' }}>
-                    <button
-                      className="btn-action-sm"
-                      id="btn-parent-report-card"
-                      onClick={() => handleViewReportCard('VIS-2026-0048')}
-                      type="button"
-                    >
-                      <FileBarChart size={14} />
-                      View Official CBSE Mark Sheet
+              </section>
+            ) : (
+              <section className="content-grid">
+                <article className="panel attendance-panel">
+                  <div className="panel-heading">
+                    <div>
+                      <h2>Attendance</h2>
+                      <p>Roll-call status by grade</p>
+                    </div>
+                    <div className="segmented" aria-label="Attendance period">
+                      {['Today', 'Week'].map((item) => (
+                        <button
+                          className={period === item ? 'selected' : ''}
+                          key={item}
+                          onClick={() => setPeriod(item)}
+                          type="button"
+                        >
+                          {item}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="attendance-table">
+                    <div className="compact-row compact-head">
+                      <span>Grade</span>
+                      <span>Sections</span>
+                      <span>Absent</span>
+                      <span>Late</span>
+                      <span>Rate</span>
+                    </div>
+                    {attendanceRows.map((row) => (
+                      <div className="compact-row" key={row.grade}>
+                        <span>{row.grade}</span>
+                        <span>{row.submitted}/{row.sections}</span>
+                        <span>{row.absent}</span>
+                        <span>{row.late}</span>
+                        <span className="rate-cell">
+                          <i style={{ width: `${row.rate}%` }} />
+                          <strong>{row.rate}%</strong>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+
+                <article className="panel fees-panel">
+                  <div className="panel-heading">
+                    <div>
+                      <h2>Fees due</h2>
+                      <p>Aging and follow-up workload</p>
+                    </div>
+                    <CircleDollarSign size={20} />
+                  </div>
+                  <div className="aging-list">
+                    {feeAging.map((item, index) => (
+                      <div className="aging-row" key={item.label}>
+                        <span className={`severity severity-${index + 1}`} />
+                        <div>
+                          <strong>{item.label}</strong>
+                          <small>{item.count} invoices</small>
+                        </div>
+                        <b>{item.amount}</b>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+
+                <article className="panel timetable-panel">
+                  <div className="panel-heading">
+                    <div>
+                      <h2>Timetable</h2>
+                      <p>Rooms and substitutions</p>
+                    </div>
+                    <CalendarDays size={20} />
+                  </div>
+                  <div className="timeline-list">
+                    {timetable.map((slot) => (
+                      <div className="timeline-item" key={`${slot.time}-${slot.className}`}>
+                        <time>{slot.time}</time>
+                        <div>
+                          <strong>{slot.className}</strong>
+                          <span>{slot.room} · {slot.teacher}</span>
+                        </div>
+                        <em>{slot.note}</em>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+
+                <article className="panel announcement-panel">
+                  <div className="panel-heading">
+                    <div>
+                      <h2>Announcements</h2>
+                      <p>Published and scheduled notices</p>
+                    </div>
+                    <MessageSquareText size={20} />
+                  </div>
+                  <div className="notice-list">
+                    {announcements.map((notice) => (
+                      <button key={notice} type="button">{notice}</button>
+                    ))}
+                  </div>
+                </article>
+
+                <article className="panel student-panel">
+                  <div className="panel-heading">
+                    <div>
+                      <h2>Student Directory</h2>
+                      <p>{filteredStudents.length} records in view</p>
+                    </div>
+                    <button className="text-button" onClick={() => setQuery('Due')} type="button">
+                      Fees due
                     </button>
                   </div>
-                </div>
-              </article>
-            </div>
-          </section>
-        ) : persona === 'Accountant' ? (
-          <section className="persona-view accountant-view">
-            <div className="persona-banner accountant-banner">
-              <h2>💳 Accounts & Fee Reconciliation Center</h2>
-              <p>Vidyuth International School · Daily Collections & Aging Matrix</p>
-            </div>
-            <div className="content-grid">
-              <article className="panel fees-panel">
-                <div className="panel-heading">
-                  <div>
-                    <h2>Collections & Receivables</h2>
-                    <p>Term-wise aging breakdown</p>
-                  </div>
-                  <button 
-                    className="btn-action-sm" 
-                    id="btn-accountant-collect-fee" 
-                    onClick={() => handleOpenFeeModal()} 
-                    type="button"
-                  >
-                    <CreditCard size={14} />
-                    Record Payment
-                  </button>
-                </div>
-                <div className="aging-list">
-                  {feeAging.map((item, index) => (
-                    <div className="aging-row" key={item.label}>
-                      <span className={`severity severity-${index + 1}`} />
-                      <div>
-                        <strong>{item.label}</strong>
-                        <small>{item.count} invoices</small>
-                      </div>
-                      <b>{item.amount}</b>
+                  <div className="student-table" role="table" aria-label="Student Directory">
+                    <div className="table-row table-head" role="row">
+                      <span role="columnheader">ID</span>
+                      <span role="columnheader">Student</span>
+                      <span role="columnheader">Class</span>
+                      <span role="columnheader">Attendance</span>
+                      <span role="columnheader">Balance</span>
+                      <span role="columnheader">Status</span>
+                      <span role="columnheader">Action</span>
                     </div>
-                  ))}
-                </div>
-              </article>
-
-              <article className="panel">
-                <div className="panel-heading">
-                  <div>
-                    <h2>Concession Policy Overview</h2>
-                    <p>Registered Fee Schemes</p>
-                  </div>
-                </div>
-                <div className="timeline-list">
-                  <div className="timeline-item">
-                    <time>25%</time>
-                    <div>
-                      <strong>Sibling Concession</strong>
-                      <span>42 active student concessions</span>
-                    </div>
-                    <em>Auto-applied</em>
-                  </div>
-                  <div className="timeline-item">
-                    <time>100%</time>
-                    <div>
-                      <strong>RTE Quota Allocation</strong>
-                      <span>28 students enrolled under RTE Section 12</span>
-                    </div>
-                    <em>Govt Subsidized</em>
-                  </div>
-                </div>
-              </article>
-
-              <article className="panel daybook-panel">
-                <div className="panel-heading">
-                  <div>
-                    <h2>Cashier Day-Book & Issued Receipts</h2>
-                    <p>{recentReceipts.length} collections reconciled today in local database</p>
-                  </div>
-                  <button className="btn-action-sm" onClick={() => handleOpenFeeModal()} type="button">
-                    <CreditCard size={14} />
-                    New Payment
-                  </button>
-                </div>
-                <table className="daybook-table">
-                  <thead>
-                    <tr>
-                      <th>Receipt #</th>
-                      <th>Student Details</th>
-                      <th>Payment Mode</th>
-                      <th>Amount Paid</th>
-                      <th>Timestamp</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentReceipts.map((r: any) => (
-                      <tr key={r.receipt_number || r.id}>
-                        <td><strong>{r.receipt_number}</strong></td>
-                        <td>
-                          <strong>{r.student_name}</strong>
-                          <small style={{ display: 'block', color: '#64748b' }}>{r.admission_number}</small>
-                        </td>
-                        <td><span className="badge-status" style={{ color: '#0f5f59' }}>{r.payment_mode}</span></td>
-                        <td><strong style={{ color: '#16a34a' }}>₹{Number(r.amount_paid).toLocaleString('en-IN')}</strong></td>
-                        <td>{new Date(r.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</td>
-                        <td>
+                    {filteredStudents.map((student) => (
+                      <div className="table-row" role="row" key={student.id}>
+                        <span role="cell">{student.id}</span>
+                        <span role="cell">{student.name}</span>
+                        <span role="cell">{student.grade}</span>
+                        <span role="cell">{student.attendance}</span>
+                        <span role="cell">{student.balance}</span>
+                        <span className={`status ${student.status.toLowerCase()}`} role="cell">
+                          {student.status}
+                        </span>
+                        <span role="cell" style={{ display: 'flex', gap: '4px' }}>
                           <button
                             className="tc-action-btn"
-                            id={`btn-reprint-${r.receipt_number?.replace(/\//g, '-')}`}
-                            onClick={() => handleRePrintReceipt(r)}
+                            onClick={() => {
+                              setTcTargetStudent(student)
+                              setShowTCModal(true)
+                            }}
                             type="button"
                           >
-                            <Printer size={12} />
-                            Re-Print
+                            Issue TC
                           </button>
-                        </td>
-                      </tr>
+                          {student.balance !== '₹0' && (
+                            <button
+                              className="tc-action-btn"
+                              onClick={() => handleOpenFeeModal(student)}
+                              type="button"
+                              style={{ background: '#fef3c7', borderColor: '#fde047', color: '#854d0e' }}
+                            >
+                              Collect
+                            </button>
+                          )}
+                        </span>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
-              </article>
-            </div>
-          </section>
-        ) : (
+                  </div>
+                </article>
+              </section>
+            )}
+          </>
+        )}
+
+        {activeNav === 'Students' && (
           <section className="content-grid">
-            <article className="panel attendance-panel">
-              <div className="panel-heading">
-                <div>
-                  <h2>Attendance</h2>
-                  <p>Roll-call status by grade</p>
-                </div>
-                <div className="segmented" aria-label="Attendance period">
-                  {['Today', 'Week'].map((item) => (
-                    <button
-                      className={period === item ? 'selected' : ''}
-                      key={item}
-                      onClick={() => setPeriod(item)}
-                      type="button"
-                    >
-                      {item}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="attendance-table">
-                <div className="compact-row compact-head">
-                  <span>Grade</span>
-                  <span>Sections</span>
-                  <span>Absent</span>
-                  <span>Late</span>
-                  <span>Rate</span>
-                </div>
-                {attendanceRows.map((row) => (
-                  <div className="compact-row" key={row.grade}>
-                    <span>{row.grade}</span>
-                    <span>
-                      {row.submitted}/{row.sections}
-                    </span>
-                    <span>{row.absent}</span>
-                    <span>{row.late}</span>
-                    <span className="rate-cell">
-                      <i style={{ width: `${row.rate}%` }} />
-                      <strong>{row.rate}%</strong>
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </article>
-
-            <article className="panel fees-panel">
-              <div className="panel-heading">
-                <div>
-                  <h2>Fees due</h2>
-                  <p>Aging and follow-up workload</p>
-                </div>
-                <CircleDollarSign size={20} />
-              </div>
-              <div className="aging-list">
-                {feeAging.map((item, index) => (
-                  <div className="aging-row" key={item.label}>
-                    <span className={`severity severity-${index + 1}`} />
-                    <div>
-                      <strong>{item.label}</strong>
-                      <small>{item.count} invoices</small>
-                    </div>
-                    <b>{item.amount}</b>
-                  </div>
-                ))}
-              </div>
-            </article>
-
-            <article className="panel timetable-panel">
-              <div className="panel-heading">
-                <div>
-                  <h2>Timetable</h2>
-                  <p>Rooms and substitutions</p>
-                </div>
-                <CalendarDays size={20} />
-              </div>
-              <div className="timeline-list">
-                {timetable.map((slot) => (
-                  <div className="timeline-item" key={`${slot.time}-${slot.className}`}>
-                    <time>{slot.time}</time>
-                    <div>
-                      <strong>{slot.className}</strong>
-                      <span>
-                        {slot.room} · {slot.teacher}
-                      </span>
-                    </div>
-                    <em>{slot.note}</em>
-                  </div>
-                ))}
-              </div>
-            </article>
-
-            <article className="panel announcement-panel">
-              <div className="panel-heading">
-                <div>
-                  <h2>Announcements</h2>
-                  <p>Published and scheduled notices</p>
-                </div>
-                <MessageSquareText size={20} />
-              </div>
-              <div className="notice-list">
-                {announcements.map((notice) => (
-                  <button key={notice} type="button">
-                    {notice}
-                  </button>
-                ))}
-              </div>
-            </article>
-
-            <article className="panel student-panel">
+            <article className="panel student-panel" style={{ gridColumn: '1 / -1' }}>
               <div className="panel-heading">
                 <div>
                   <h2>Student Directory</h2>
-                  <p>{filteredStudents.length} records in view</p>
+                  <p>{liveStudents.length} enrolled students · Academic Year {schoolProfile.academic_year}</p>
                 </div>
-                <button className="text-button" onClick={() => setQuery('Due')} type="button">
-                  Fees due
-                </button>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <button className="text-button" onClick={() => setQuery('Due')} type="button">Fee defaulters</button>
+                  <button className="text-button" onClick={() => setQuery('')} type="button">All students</button>
+                  <button className="btn-action-sm" onClick={() => handleOpenFeeModal()} type="button">
+                    <Plus size={14} />
+                    New Admission
+                  </button>
+                </div>
               </div>
               <div className="student-table" role="table" aria-label="Student Directory">
                 <div className="table-row table-head" role="row">
-                  <span role="columnheader">ID</span>
-                  <span role="columnheader">Student</span>
+                  <span role="columnheader">Adm. No.</span>
+                  <span role="columnheader">Student Name</span>
                   <span role="columnheader">Class</span>
                   <span role="columnheader">Attendance</span>
-                  <span role="columnheader">Balance</span>
+                  <span role="columnheader">Outstanding</span>
                   <span role="columnheader">Status</span>
-                  <span role="columnheader">Action</span>
+                  <span role="columnheader">Actions</span>
                 </div>
                 {filteredStudents.map((student) => (
                   <div className="table-row" role="row" key={student.id}>
-                    <span role="cell">{student.id}</span>
+                    <span role="cell"><strong>{student.id}</strong></span>
                     <span role="cell">{student.name}</span>
                     <span role="cell">{student.grade}</span>
                     <span role="cell">{student.attendance}</span>
                     <span role="cell">{student.balance}</span>
-                    <span className={`status ${student.status.toLowerCase()}`} role="cell">
-                      {student.status}
-                    </span>
+                    <span className={`status ${student.status.toLowerCase()}`} role="cell">{student.status}</span>
                     <span role="cell" style={{ display: 'flex', gap: '4px' }}>
-                      <button
-                        className="tc-action-btn"
-                        onClick={() => {
-                          setTcTargetStudent(student)
-                          setShowTCModal(true)
-                        }}
-                        type="button"
-                      >
+                      <button className="tc-action-btn" onClick={() => handleViewReportCard(student.id)} type="button">
+                        <FileBarChart size={12} /> Report Card
+                      </button>
+                      <button className="tc-action-btn" onClick={() => { setTcTargetStudent(student); setShowTCModal(true) }} type="button">
                         Issue TC
                       </button>
                       {student.balance !== '₹0' && (
@@ -1063,6 +1199,399 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
                         </button>
                       )}
                     </span>
+                  </div>
+                ))}
+              </div>
+            </article>
+          </section>
+        )}
+
+        {activeNav === 'Classes' && (
+          <section className="content-grid">
+            <article className="panel timetable-panel">
+              <div className="panel-heading">
+                <div><h2>Today's Timetable</h2><p>Active sessions and room assignments</p></div>
+                <CalendarDays size={20} />
+              </div>
+              <div className="timeline-list">
+                {timetable.map((slot) => (
+                  <div className="timeline-item" key={`${slot.time}-${slot.className}`}>
+                    <time>{slot.time}</time>
+                    <div>
+                      <strong>{slot.className}</strong>
+                      <span>{slot.room} · {slot.teacher}</span>
+                    </div>
+                    <em>{slot.note}</em>
+                  </div>
+                ))}
+              </div>
+            </article>
+
+            <article className="panel">
+              <div className="panel-heading">
+                <div><h2>Class Roster</h2><p>Sections and strength this term</p></div>
+              </div>
+              <div className="timeline-list">
+                {[
+                  { grade: 'Grade 6', sections: 4, strength: 156, classTeacher: 'Ms. Priya Nair' },
+                  { grade: 'Grade 7', sections: 5, strength: 197, classTeacher: 'Mr. Rajan Pillai' },
+                  { grade: 'Grade 8', sections: 5, strength: 188, classTeacher: 'Ms. Deepa Menon' },
+                  { grade: 'Grade 9', sections: 4, strength: 162, classTeacher: 'Mr. Venkat Rao' },
+                  { grade: 'Grade 10', sections: 4, strength: 148, classTeacher: 'Dr. Sunita Bhat' },
+                ].map((c) => (
+                  <div className="timeline-item" key={c.grade}>
+                    <time>{c.sections}§</time>
+                    <div>
+                      <strong>{c.grade}</strong>
+                      <span>{c.strength} students · CT: {c.classTeacher}</span>
+                    </div>
+                    <em style={{ color: '#0ea5e9' }}>Active</em>
+                  </div>
+                ))}
+              </div>
+            </article>
+
+            <article className="panel">
+              <div className="panel-heading">
+                <div><h2>Substitution Requests</h2><p>Open cover slots today</p></div>
+              </div>
+              <div className="timeline-list">
+                {[
+                  { grade: 'Grade 7C', period: 'Period 3 (10:15)', reason: 'Ms. Lakshmi on leave', cover: 'Mr. Reddy assigned' },
+                  { grade: 'Grade 9A', period: 'Period 5 (12:30)', reason: 'Mr. Sharma on duty', cover: 'Awaiting assignment' },
+                ].map((s) => (
+                  <div className="timeline-item" key={s.grade + s.period}>
+                    <time>SUB</time>
+                    <div>
+                      <strong>{s.grade} · {s.period}</strong>
+                      <span>{s.reason}</span>
+                    </div>
+                    <em style={{ color: s.cover.includes('Awaiting') ? '#f59e0b' : '#10b981' }}>{s.cover}</em>
+                  </div>
+                ))}
+              </div>
+            </article>
+          </section>
+        )}
+
+        {activeNav === 'Attendance' && (
+          <section className="content-grid">
+            <article className="panel attendance-panel" style={{ gridColumn: '1 / -1' }}>
+              <div className="panel-heading">
+                <div><h2>Attendance Overview</h2><p>Daily roll-call status across all grades</p></div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <div className="segmented" aria-label="Attendance period">
+                    {['Today', 'Week'].map((item) => (
+                      <button className={period === item ? 'selected' : ''} key={item} onClick={() => setPeriod(item)} type="button">{item}</button>
+                    ))}
+                  </div>
+                  <button className="btn-action-sm" onClick={() => setShowAttendanceModal(true)} type="button">
+                    <Zap size={14} /> Fast Roll Call
+                  </button>
+                </div>
+              </div>
+              <div className="attendance-table">
+                <div className="compact-row compact-head">
+                  <span>Grade</span><span>Sections</span><span>Absent</span><span>Late</span><span>Rate</span>
+                </div>
+                {attendanceRows.map((row) => (
+                  <div className="compact-row" key={row.grade}>
+                    <span>{row.grade}</span>
+                    <span>{row.submitted}/{row.sections}</span>
+                    <span>{row.absent}</span>
+                    <span>{row.late}</span>
+                    <span className="rate-cell">
+                      <i style={{ width: `${row.rate}%` }} />
+                      <strong>{row.rate}%</strong>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </article>
+
+            <article className="panel">
+              <div className="panel-heading">
+                <div><h2>Chronic Absentees</h2><p>Below 75% this term — CBSE threshold</p></div>
+              </div>
+              <div className="timeline-list">
+                {[
+                  { name: 'Saanvi Sharma', id: 'VIS-2026-0217', grade: '6A', pct: '78%', days: 14 },
+                  { name: 'Priya Nair', id: 'VIS-2026-0402', grade: '10A', pct: '84%', days: 10 },
+                ].map((s) => (
+                  <div className="timeline-item" key={s.id}>
+                    <time style={{ color: '#ef4444' }}>{s.pct}</time>
+                    <div><strong>{s.name} · {s.grade}</strong><span>{s.days} absences · {s.id}</span></div>
+                    <em style={{ color: '#f59e0b' }}>Notice pending</em>
+                  </div>
+                ))}
+              </div>
+            </article>
+
+            <article className="panel">
+              <div className="panel-heading">
+                <div><h2>Submission Status</h2><p>Sections yet to submit today</p></div>
+              </div>
+              <div className="timeline-list">
+                {[
+                  { section: 'Grade 7D', teacher: 'Ms. Anita Verma', time: 'Overdue by 45 min' },
+                  { section: 'Grade 8B', teacher: 'Mr. Suresh Kumar', time: 'Overdue by 20 min' },
+                  { section: 'Grade 8E', teacher: 'Ms. Lakshmi Iyer', time: 'Submitted on leave' },
+                ].map((s) => (
+                  <div className="timeline-item" key={s.section}>
+                    <time style={{ color: '#ef4444' }}>⚠</time>
+                    <div><strong>{s.section}</strong><span>{s.teacher}</span></div>
+                    <em style={{ color: '#ef4444' }}>{s.time}</em>
+                  </div>
+                ))}
+              </div>
+            </article>
+          </section>
+        )}
+
+        {activeNav === 'Fees' && (
+          <section className="content-grid">
+            <article className="panel fees-panel">
+              <div className="panel-heading">
+                <div><h2>Fee Aging Matrix</h2><p>Outstanding dues by overdue period</p></div>
+                <button className="btn-action-sm" onClick={() => handleOpenFeeModal()} type="button">
+                  <CreditCard size={14} /> Record Payment
+                </button>
+              </div>
+              <div className="aging-list">
+                {feeAging.map((item, index) => (
+                  <div className="aging-row" key={item.label}>
+                    <span className={`severity severity-${index + 1}`} />
+                    <div><strong>{item.label}</strong><small>{item.count} invoices</small></div>
+                    <b>{item.amount}</b>
+                  </div>
+                ))}
+              </div>
+            </article>
+
+            <article className="panel">
+              <div className="panel-heading">
+                <div><h2>Concession Schemes</h2><p>Active fee waivers &amp; discounts</p></div>
+              </div>
+              <div className="timeline-list">
+                <div className="timeline-item"><time>25%</time><div><strong>Sibling Concession</strong><span>42 active concessions</span></div><em>Auto-applied</em></div>
+                <div className="timeline-item"><time>100%</time><div><strong>RTE Quota</strong><span>28 students under RTE Section 12</span></div><em>Govt Subsidized</em></div>
+                <div className="timeline-item"><time>50%</time><div><strong>Staff Ward Discount</strong><span>14 staff children enrolled</span></div><em>HR Approved</em></div>
+              </div>
+            </article>
+
+            <article className="panel daybook-panel" style={{ gridColumn: '1 / -1' }}>
+              <div className="panel-heading">
+                <div><h2>Cashier Day-Book</h2><p>{recentReceipts.length} collections today</p></div>
+                <button className="btn-action-sm" onClick={() => handleOpenFeeModal()} type="button">
+                  <CreditCard size={14} /> New Payment
+                </button>
+              </div>
+              <table className="daybook-table">
+                <thead><tr><th>Receipt #</th><th>Student</th><th>Mode</th><th>Amount</th><th>Time</th><th>Action</th></tr></thead>
+                <tbody>
+                  {recentReceipts.length === 0 ? (
+                    <tr><td colSpan={6} style={{ textAlign: 'center', color: '#94a3b8', padding: '24px' }}>No collections yet. Use "Record Payment" to begin.</td></tr>
+                  ) : recentReceipts.map((r: any) => (
+                    <tr key={r.receipt_number || r.id}>
+                      <td><strong>{r.receipt_number}</strong></td>
+                      <td><strong>{r.student_name}</strong><small style={{ display: 'block', color: '#64748b' }}>{r.admission_number}</small></td>
+                      <td><span className="badge-status" style={{ color: '#0f5f59' }}>{r.payment_mode}</span></td>
+                      <td><strong style={{ color: '#16a34a' }}>₹{Number(r.amount_paid).toLocaleString('en-IN')}</strong></td>
+                      <td>{new Date(r.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</td>
+                      <td><button className="tc-action-btn" onClick={() => handleRePrintReceipt(r)} type="button"><Printer size={12} /> Re-Print</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </article>
+          </section>
+        )}
+
+        {activeNav === 'Staff' && (
+          <section className="content-grid">
+            <article className="panel" style={{ gridColumn: '1 / -1' }}>
+              <div className="panel-heading">
+                <div><h2>Staff Directory</h2><p>Teaching &amp; non-teaching personnel</p></div>
+                <button className="btn-action-sm" type="button"><Plus size={14} /> Add Staff</button>
+              </div>
+              <div className="student-table" role="table" aria-label="Staff Directory">
+                <div className="table-row table-head" role="row">
+                  <span role="columnheader">Employee ID</span>
+                  <span role="columnheader">Name</span>
+                  <span role="columnheader">Department</span>
+                  <span role="columnheader">Designation</span>
+                  <span role="columnheader">Contact</span>
+                  <span role="columnheader">Status</span>
+                </div>
+                {[
+                  { id: 'VIS-STF-001', name: 'Dr. Radhika Sharma', dept: 'Administration', role: 'Principal', phone: '+91 98490 10001', status: 'Active' },
+                  { id: 'VIS-STF-002', name: 'Mr. Rajan Pillai', dept: 'Mathematics', role: 'Sr. Teacher', phone: '+91 98490 10002', status: 'Active' },
+                  { id: 'VIS-STF-003', name: 'Ms. Deepa Menon', dept: 'Science', role: 'Teacher', phone: '+91 98490 10003', status: 'Active' },
+                  { id: 'VIS-STF-004', name: 'Ms. Anita Verma', dept: 'English', role: 'Teacher', phone: '+91 98490 10004', status: 'On Leave' },
+                  { id: 'VIS-STF-005', name: 'Mr. Venkat Rao', dept: 'Social Studies', role: 'Teacher', phone: '+91 98490 10005', status: 'Active' },
+                  { id: 'VIS-STF-006', name: 'Ms. Lakshmi Iyer', dept: 'Hindi', role: 'Teacher', phone: '+91 98490 10006', status: 'Active' },
+                ].map((s) => (
+                  <div className="table-row" role="row" key={s.id}>
+                    <span role="cell"><strong>{s.id}</strong></span>
+                    <span role="cell">{s.name}</span>
+                    <span role="cell">{s.dept}</span>
+                    <span role="cell">{s.role}</span>
+                    <span role="cell">{s.phone}</span>
+                    <span className={`status ${s.status === 'Active' ? 'clear' : 'review'}`} role="cell">{s.status}</span>
+                  </div>
+                ))}
+              </div>
+            </article>
+
+            <article className="panel">
+              <div className="panel-heading">
+                <div><h2>Leave Requests</h2><p>Pending principal approval</p></div>
+              </div>
+              <div className="timeline-list">
+                <div className="timeline-item"><time>3d</time><div><strong>Ms. Anita Verma · English</strong><span>Medical leave · 14–16 Sep 2026</span></div><em style={{ color: '#f59e0b' }}>Pending</em></div>
+                <div className="timeline-item"><time>1d</time><div><strong>Mr. Suresh Kumar · PE</strong><span>Casual leave · 18 Sep 2026</span></div><em style={{ color: '#10b981' }}>Approved</em></div>
+              </div>
+            </article>
+
+            <article className="panel">
+              <div className="panel-heading">
+                <div><h2>Payroll Summary</h2><p>September 2026 disbursement</p></div>
+              </div>
+              <div className="timeline-list">
+                <div className="timeline-item"><time>42</time><div><strong>Total Staff on Payroll</strong><span>38 teaching · 4 non-teaching</span></div><em>₹28,40,000</em></div>
+                <div className="timeline-item"><time>Sep</time><div><strong>Disbursement Status</strong><span>Scheduled for 28 Sep 2026</span></div><em style={{ color: '#f59e0b' }}>Pending</em></div>
+              </div>
+            </article>
+          </section>
+        )}
+
+        {activeNav === 'Messages' && (
+          <section className="content-grid">
+            <article className="panel announcement-panel">
+              <div className="panel-heading">
+                <div><h2>Broadcast Notices</h2><p>Published school-wide announcements</p></div>
+                <button className="btn-action-sm" type="button"><Send size={14} /> New Notice</button>
+              </div>
+              <div className="notice-list">
+                {[
+                  'Bus route 4 delayed by 12 minutes — Parents notified via SMS',
+                  'Parent-teacher meeting slots published — Booking open till 15 Sep',
+                  'Science fair registration closes today at 5:00 PM',
+                  'Annual Sports Day — 28 September 2026 · All students to report by 8:00 AM',
+                  'CBSE Board exam schedule released — Grade 10 & 12 students check portal',
+                ].map((notice) => (
+                  <button key={notice} type="button">{notice}</button>
+                ))}
+              </div>
+            </article>
+
+            <article className="panel">
+              <div className="panel-heading">
+                <div><h2>SMS / WhatsApp Log</h2><p>Last 24 hours outbox</p></div>
+              </div>
+              <div className="timeline-list">
+                {[
+                  { type: 'SMS', msg: 'Fee receipt sent to Maya Reddy parent', time: '09:42 AM', status: 'Delivered' },
+                  { type: 'WA', msg: 'PT1 marks notification sent to Grade 10A', time: '10:15 AM', status: 'Read' },
+                  { type: 'SMS', msg: 'Absence alert — Saanvi Sharma (6A)', time: '11:00 AM', status: 'Delivered' },
+                  { type: 'WA', msg: 'PTM invite bulk sent to Grade 8 parents', time: '02:30 PM', status: 'Sent' },
+                ].map((m) => (
+                  <div className="timeline-item" key={m.msg}>
+                    <time style={{ background: m.type === 'WA' ? '#dcfce7' : '#dbeafe', color: m.type === 'WA' ? '#166534' : '#1e40af', borderRadius: '4px', padding: '2px 6px' }}>{m.type}</time>
+                    <div><strong>{m.msg}</strong><span>{m.time}</span></div>
+                    <em style={{ color: '#10b981' }}>{m.status}</em>
+                  </div>
+                ))}
+              </div>
+            </article>
+
+            <article className="panel">
+              <div className="panel-heading">
+                <div><h2>Send Bulk Message</h2><p>Target by class, grade, or role</p></div>
+              </div>
+              <div style={{ padding: '12px 0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <select className="persona-selector" style={{ width: '100%' }}>
+                  <option>All Parents</option>
+                  <option>Grade 10 Parents</option>
+                  <option>Fee Defaulters</option>
+                  <option>All Staff</option>
+                </select>
+                <textarea style={{ width: '100%', minHeight: '80px', padding: '10px', borderRadius: '8px', border: '1.5px solid var(--border)', fontSize: '13px', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }} placeholder="Type your message here..." />
+                <button className="btn-action-sm" type="button" style={{ alignSelf: 'flex-end' }}>
+                  <Send size={14} /> Send via SMS &amp; WhatsApp
+                </button>
+              </div>
+            </article>
+          </section>
+        )}
+
+        {activeNav === 'Reports' && (
+          <section className="content-grid">
+            <article className="panel" style={{ gridColumn: '1 / -1' }}>
+              <div className="panel-heading">
+                <div><h2>Reports &amp; Analytics</h2><p>Institutional data exports and academic summaries</p></div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px', padding: '8px 0' }}>
+                {[
+                  { label: 'Attendance Summary Report', icon: ClipboardCheck, desc: 'Grade-wise daily/monthly roll-call export', color: '#0ea5e9' },
+                  { label: 'Fee Collection Report', icon: CircleDollarSign, desc: 'Receipts, aging, and concession ledger', color: '#10b981' },
+                  { label: 'Student Progress Report', icon: FileBarChart, desc: 'CBSE mark sheets and PT1/PT2 results', color: '#8b5cf6' },
+                  { label: 'Staff Attendance & Payroll', icon: GraduationCap, desc: 'Monthly staff attendance and disbursement', color: '#f59e0b' },
+                  { label: 'TC & Admission Register', icon: Database, desc: 'Issued TCs and new admissions log', color: '#ef4444' },
+                  { label: 'Exam Schedule & Timetable', icon: CalendarDays, desc: 'Scheduled exams and room allocations', color: '#64748b' },
+                  { label: 'SMS / WA Outbox Report', icon: MessageSquareText, desc: 'Communication delivery statistics', color: '#06b6d4' },
+                  { label: 'Database Backup Report', icon: ShieldCheck, desc: 'Snapshot logs and recovery status', color: '#0f5f59' },
+                ].map((r) => (
+                  <button
+                    key={r.label}
+                    type="button"
+                    onClick={() => setActivity(`Generating: ${r.label}…`)}
+                    style={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '8px',
+                      padding: '16px', borderRadius: '10px', border: '1.5px solid var(--border)',
+                      background: 'var(--surface)', cursor: 'pointer', textAlign: 'left',
+                      transition: 'box-shadow 0.15s, border-color 0.15s',
+                    }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = r.color; (e.currentTarget as HTMLElement).style.boxShadow = `0 0 0 3px ${r.color}22` }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.boxShadow = 'none' }}
+                  >
+                    <r.icon size={22} style={{ color: r.color }} />
+                    <strong style={{ fontSize: '13px', color: 'var(--text)' }}>{r.label}</strong>
+                    <span style={{ fontSize: '12px', color: '#64748b', lineHeight: 1.4 }}>{r.desc}</span>
+                    <span style={{ fontSize: '11px', color: r.color, fontWeight: 600, marginTop: 'auto' }}>Export PDF / CSV →</span>
+                  </button>
+                ))}
+              </div>
+            </article>
+
+            <article className="panel">
+              <div className="panel-heading">
+                <div><h2>Quick Stats</h2><p>Live institutional summary</p></div>
+              </div>
+              <div className="timeline-list">
+                {liveMetrics.map((m) => (
+                  <div className="timeline-item" key={m.label}>
+                    <time style={{ minWidth: '60px', textAlign: 'right', fontWeight: 700, color: 'var(--accent)' }}>{m.value}</time>
+                    <div><strong>{m.label}</strong><span>{m.detail}</span></div>
+                  </div>
+                ))}
+              </div>
+            </article>
+
+            <article className="panel">
+              <div className="panel-heading">
+                <div><h2>Recent Activity</h2><p>Generated in the last 7 days</p></div>
+              </div>
+              <div className="timeline-list">
+                {[
+                  { name: 'Fee Collection — August 2026', date: '11 Sep', by: 'Accountant' },
+                  { name: 'Attendance Summary — Week 36', date: '09 Sep', by: 'Principal' },
+                  { name: 'PT1 Results — Grade 10A', date: '07 Sep', by: 'Teacher' },
+                ].map((r) => (
+                  <div className="timeline-item" key={r.name}>
+                    <time>{r.date}</time>
+                    <div><strong>{r.name}</strong><span>Generated by {r.by}</span></div>
+                    <em><button className="tc-action-btn" type="button"><Download size={11} /> Download</button></em>
                   </div>
                 ))}
               </div>
@@ -1343,7 +1872,7 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
                 className={`settings-tab-btn ${settingsTab === 'backups' ? 'active' : ''}`}
                 onClick={() => {
                   setSettingsTab('backups')
-                  fetch(`${API_BASE}/api/v1/backup/list`)
+                  fetch(`${API_BASE}/api/v1/backup/list`, { headers: authHeaders() })
                     .then((r) => r.json())
                     .then((d) => { if (d.snapshots) setBackupSnapshots(d.snapshots) })
                 }}
@@ -2029,10 +2558,7 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
               <button
                 className="btn-primary"
                 id="btn-unlock-workspace"
-                onClick={() => {
-                  setShowLockModal(false)
-                  setActivity(`Session unlocked for user ${lockUsername}`)
-                }}
+                onClick={() => handleQuickLogin(persona, lockUsername)}
                 type="button"
               >
                 <ShieldCheck size={16} />
