@@ -118,9 +118,9 @@ def seed_default_sessions():
 # Endpoints reachable without strict Bearer token requirement
 PUBLIC_API_PATHS = {
     "/api/v1/health", "/api/v1/auth/login", "/api/v1/auth/logout",
-    "/api/v1/summary", "/api/v1/school/profile", "/api/v1/students",
-    "/api/v1/attendance", "/api/v1/fees/receipts", "/api/v1/marks/class",
-    "/api/v1/notices/list", "/api/v1/backup/list"
+    "/api/v1/summary", "/api/v1/school/profile", "/api/v1/school/settings",
+    "/api/v1/students", "/api/v1/attendance", "/api/v1/fees/receipts",
+    "/api/v1/marks/class", "/api/v1/notices/list", "/api/v1/backup/list"
 }
 
 _LOGIN_ATTEMPTS = {}  # client_ip -> list of timestamps

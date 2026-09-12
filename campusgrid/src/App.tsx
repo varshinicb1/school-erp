@@ -84,7 +84,11 @@ const feeAging = [
 ]
 
 
-const API_BASE = (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.port === '3000')) ? 'http://127.0.0.1:5050' : ''
+const API_BASE = (typeof window !== 'undefined' && 
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && 
+  window.location.port !== '5050' && 
+  window.location.port !== ''
+) ? 'http://127.0.0.1:5050' : ''
 
 // ---- Authentication helpers (session token from the School OS server) ----
 type PersonaRole = 'Principal' | 'Teacher' | 'Parent' | 'Accountant'
@@ -949,55 +953,68 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
           <>
             {persona === 'Teacher' ? (
               <section className="persona-view teacher-view">
-                <div className="persona-banner">
-                  <div>
-                    <h2>Teacher Workspace</h2>
-                    <p>4 classes scheduled today · {schoolProfile.name}</p>
+                <div className="persona-hero-card" style={{ background: 'linear-gradient(135deg, #065f46 0%, #047857 50%, #1e293b 100%)' }}>
+                  <div className="persona-hero-left">
+                    <span className="persona-hero-badge" style={{ background: 'rgba(255,255,255,0.15)', color: '#a7f3d0' }}>
+                      <BookOpen size={13} />
+                      Faculty Workspace · Grade 10 Lead
+                    </span>
+                    <h2>Aditya Mehta (Sr. Mathematics Faculty)</h2>
+                    <p>4 scheduled teaching periods today · Next class: Grade 10A (Room 302)</p>
+                  </div>
+                  <div className="persona-hero-actions">
+                    <button className="btn-hero-action" onClick={() => setShowAttendanceModal(true)} type="button">
+                      <Zap size={14} /> Fast Roll Call (&lt;20s)
+                    </button>
+                    <button className="btn-hero-action" id="btn-teacher-enter-marks-hero" onClick={handleOpenMarksModal} type="button">
+                      <FileSpreadsheet size={14} /> Record PT-1 Marks
+                    </button>
                   </div>
                 </div>
-                <div className="teacher-grid">
-                  <div className="panel">
+
+                <div className="content-grid">
+                  <article className="panel">
                     <div className="panel-heading">
                       <div>
-                        <h3>Today's Assigned Classes</h3>
-                        <p>Immediate attendance and mark entry actions</p>
+                        <h2>Today's Class Schedule</h2>
+                        <p>Interactive periods &amp; attendance status</p>
                       </div>
                     </div>
-                    <div className="teacher-class-list">
+                    <div className="timeline-list">
                       {[
-                        { grade: 'Grade 10A', subject: 'Mathematics', time: '08:30 - 09:15', room: 'Room 302', attStatus: 'Pending' },
-                        { grade: 'Grade 9B', subject: 'Mathematics', time: '09:20 - 10:05', room: 'Room 204', attStatus: 'Done (94%)' },
-                        { grade: 'Grade 8C', subject: 'Physics Lab', time: '11:15 - 12:00', room: 'Physics Lab', attStatus: 'Pending' },
-                        { grade: 'Grade 10B', subject: 'Mathematics', time: '14:00 - 14:45', room: 'Room 304', attStatus: 'Pending' },
+                        { grade: 'Grade 10A', subject: 'Mathematics (Algebra)', time: '08:30 - 09:15', room: 'Room 302', attStatus: 'Pending' },
+                        { grade: 'Grade 9B', subject: 'Mathematics (Geometry)', time: '09:20 - 10:05', room: 'Room 204', attStatus: 'Done (94%)' },
+                        { grade: 'Grade 8C', subject: 'Physics Practical Lab', time: '11:15 - 12:00', room: 'Physics Lab', attStatus: 'Pending' },
+                        { grade: 'Grade 10B', subject: 'Mathematics (Trigonometry)', time: '14:00 - 14:45', room: 'Room 304', attStatus: 'Pending' },
                       ].map((c) => (
-                        <div className="teacher-class-item" key={c.grade + c.time}>
+                        <div className="timeline-item" key={c.grade + c.time}>
+                          <time style={{ color: 'var(--primary)', fontWeight: 700 }}>{c.grade}</time>
                           <div>
-                            <strong>{c.grade} — {c.subject}</strong>
-                            <small>{c.time} · {c.room}</small>
+                            <strong>{c.subject}</strong>
+                            <span>{c.time} · {c.room}</span>
                           </div>
-                          <div className="teacher-class-actions">
-                            <span className={`badge-pill ${c.attStatus.includes('Done') ? 'pill-green' : 'pill-yellow'}`}>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <span className={`status ${c.attStatus.includes('Done') ? 'clear' : 'review'}`}>
                               {c.attStatus}
                             </span>
                             <button
-                              className="btn-action-sm"
+                              className="tc-action-btn"
                               onClick={() => setShowAttendanceModal(true)}
                               type="button"
                             >
-                              <Zap size={14} />
-                              Roll Call
+                              <Zap size={12} /> Roll Call
                             </button>
                           </div>
                         </div>
                       ))}
                     </div>
-                  </div>
+                  </article>
 
-                  <div className="panel">
+                  <article className="panel">
                     <div className="panel-heading">
                       <div>
-                        <h3>Pending Marks Entry</h3>
-                        <p>Term 1 Periodic Test (PT1)</p>
+                        <h2>Periodic Test 1 (PT1) Mark Entry</h2>
+                        <p>Term 1 grading &amp; CBSE moderation</p>
                       </div>
                       <button
                         className="btn-action-sm"
@@ -1005,87 +1022,135 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
                         onClick={handleOpenMarksModal}
                         type="button"
                       >
-                        <FileSpreadsheet size={14} />
-                        Enter Marks
+                        <FileSpreadsheet size={14} /> Enter Marks
                       </button>
                     </div>
                     <div className="timeline-list">
                       <div className="timeline-item">
-                        <time>PT1</time>
+                        <time style={{ color: 'var(--amber)', fontWeight: 800 }}>PT1</time>
                         <div>
                           <strong>Grade 10A — Mathematics</strong>
-                          <span>28 / 38 papers graded</span>
+                          <span>28 / 38 papers graded · Max marks: 100</span>
                         </div>
-                        <em>Due Tomorrow</em>
+                        <em style={{ color: 'var(--amber)', fontWeight: 650 }}>Due Tomorrow</em>
                       </div>
                       <div className="timeline-item">
-                        <time>PT1</time>
+                        <time style={{ color: 'var(--emerald)', fontWeight: 800 }}>PT1</time>
                         <div>
                           <strong>Grade 9B — Mathematics</strong>
-                          <span>35 / 35 papers graded</span>
+                          <span>35 / 35 papers graded · Result published</span>
                         </div>
-                        <em style={{ color: '#10b981' }}>Completed</em>
+                        <em style={{ color: 'var(--emerald)', fontWeight: 650 }}>Completed</em>
+                      </div>
+                      <div className="timeline-item">
+                        <time style={{ color: 'var(--sky)', fontWeight: 800 }}>NOTIF</time>
+                        <div>
+                          <strong>Homework Broadcast to Grade 10A Parents</strong>
+                          <span>Chapter 4 Exercise 4.2 Questions 1–10 due Friday</span>
+                        </div>
+                        <em>
+                          <button className="tc-action-btn" onClick={() => { setNoticeTarget('Grade 10 Parents'); setNoticeMessage('Homework assignment: Complete Exercise 4.2 Q1 to Q10 before tomorrow class.'); setShowNoticeModal(true); }} type="button">
+                            <Send size={11} /> WhatsApp
+                          </button>
+                        </em>
                       </div>
                     </div>
-                  </div>
+                  </article>
                 </div>
               </section>
             ) : persona === 'Parent' ? (
               <section className="persona-view parent-view">
-                <div className="persona-banner parent-banner">
-                  <h2>‍‍ Parent Portal — Aarav Mehta (Grade 8A)</h2>
-                  <p>Admission No: VIS-2026-0048 · Academic Year 2026-27</p>
+                <div className="persona-hero-card" style={{ background: 'linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #0f172a 100%)' }}>
+                  <div className="persona-hero-left">
+                    <span className="persona-hero-badge" style={{ background: 'rgba(255,255,255,0.15)', color: '#bfdbfe' }}>
+                      <Users size={13} />
+                      Parent Portal · Academic Session 2026-27
+                    </span>
+                    <h2>Mr. Rajesh Mehta (Aarav's Guardian)</h2>
+                    <p>Primary Student: Aarav Mehta (Grade 8A · Roll #18) · Sibling: Ananya Mehta (Grade 4B)</p>
+                  </div>
+                  <div className="persona-hero-actions">
+                    <button className="btn-hero-action" onClick={() => handleOpenFeeModal()} type="button">
+                      <CreditCard size={14} /> Pay Term Fees (UPI)
+                    </button>
+                    <button className="btn-hero-action" onClick={() => handleViewReportCard('VIS-2026-0048')} type="button">
+                      <FileBarChart size={14} /> Official CBSE Report Card
+                    </button>
+                  </div>
                 </div>
+
                 <div className="content-grid">
                   <article className="panel">
                     <div className="panel-heading">
                       <div>
-                        <h3>Attendance Summary</h3>
-                        <p>Current Term: 96% attendance</p>
+                        <h2>Attendance &amp; Academic Status</h2>
+                        <p>Aarav Mehta · Grade 8A · Admission VIS-2026-0048</p>
                       </div>
-                      <ClipboardCheck size={20} />
+                      <span className="status clear">95.7% Attendance</span>
                     </div>
-                    <div style={{ padding: '16px 0' }}>
-                      <p>Aarav was present for <strong>88 of 92</strong> school days this term.</p>
-                      <small style={{ color: '#10b981', fontWeight: 600 }}>✓ Meets mandatory 75% CBSE requirement</small>
+                    <div className="timeline-list">
+                      <div className="timeline-item">
+                        <time style={{ color: 'var(--emerald)' }}>ROLL</time>
+                        <div>
+                          <strong>Present in School Today</strong>
+                          <span>Marked present by Class Teacher Ms. Deepa Menon at 08:35 AM</span>
+                        </div>
+                        <em style={{ color: 'var(--emerald)', fontWeight: 700 }}>In Class</em>
+                      </div>
+                      <div className="timeline-item">
+                        <time style={{ color: 'var(--primary)' }}>TERM</time>
+                        <div>
+                          <strong>88 of 92 Cumulative Days Attended</strong>
+                          <span>CBSE statutory attendance compliance: Satisfied (Above 75%)</span>
+                        </div>
+                        <em style={{ color: 'var(--primary)' }}>Verified</em>
+                      </div>
+                      <div className="timeline-item">
+                        <time style={{ color: 'var(--purple)' }}>PT-1</time>
+                        <div>
+                          <strong>Periodic Assessment Aggregate: 88.0% (Grade A2)</strong>
+                          <span>Math: 95/100 (A1) · Science: 91/100 (A1) · English: 88/100 (A2)</span>
+                        </div>
+                        <em>
+                          <button className="tc-action-btn" onClick={() => handleViewReportCard('VIS-2026-0048')} type="button">
+                            <FileBarChart size={12} /> View Sheet
+                          </button>
+                        </em>
+                      </div>
                     </div>
                   </article>
 
                   <article className="panel">
                     <div className="panel-heading">
                       <div>
-                        <h3>Fee Payment Status</h3>
-                        <p>Term 2 Tuition &amp; Transport</p>
+                        <h2>Live School Transport &amp; Fee Status</h2>
+                        <p>GPS tracking &amp; financial ledger</p>
                       </div>
-                      <CircleDollarSign size={20} />
                     </div>
-                    <div style={{ padding: '16px 0' }}>
-                      <p>All current term dues are <strong>Cleared (₹0 balance)</strong>.</p>
-                      <small style={{ color: '#64748b' }}>Next Term Fee Due Date: 15th October 2026</small>
-                    </div>
-                  </article>
-
-                  <article className="panel">
-                    <div className="panel-heading">
-                      <div>
-                        <h3>Report Card &amp; Results</h3>
-                        <p>Periodic Test 1 (PT1)</p>
+                    <div className="timeline-list">
+                      <div className="timeline-item">
+                        <time style={{ color: 'var(--emerald)' }}>FEE</time>
+                        <div>
+                          <strong>Term 2 Tuition &amp; Transport Fee</strong>
+                          <span>Current balance: ₹0 (Receipt #REC-2026-0048 generated)</span>
+                        </div>
+                        <em style={{ color: 'var(--emerald)', fontWeight: 700 }}>Paid in Full</em>
                       </div>
-                      <FileBarChart size={20} />
-                    </div>
-                    <div style={{ padding: '16px 0' }}>
-                      <p>Aggregate Score: <strong>88.0% (Grade A2)</strong></p>
-                      <small>Mathematics: A1 (95%) · Science: A1 (91%) · English: A2 (88%)</small>
-                      <div style={{ marginTop: '14px' }}>
-                        <button
-                          className="btn-action-sm"
-                          id="btn-parent-report-card"
-                          onClick={() => handleViewReportCard('VIS-2026-0048')}
-                          type="button"
-                        >
-                          <FileBarChart size={14} />
-                          View Official CBSE Mark Sheet
-                        </button>
+                      <div className="timeline-item">
+                        <time style={{ color: 'var(--sky)' }}>GPS</time>
+                        <div>
+                          <strong>School Bus Route #12 (KA-04-E-2918)</strong>
+                          <span>Driver: Ramesh (+91 98490 33211) · Next Stop: Financial District Stop 4</span>
+                        </div>
+                        <em style={{ color: 'var(--sky)', fontWeight: 700 }}>ETA 15 min</em>
+                      </div>
+                      <div className="timeline-item">
+                        <time style={{ color: 'var(--amber)' }}>NOTICE</time>
+                        <div>
+                          <strong>Upcoming Parent-Teacher Meeting (PTM)</strong>
+                          <span>Scheduled for Saturday, 19th September · Slot: 10:30 AM</span>
+                        </div>
+                        <em>Confirmed</em>
                       </div>
                     </div>
                   </article>
@@ -1093,77 +1158,89 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
               </section>
             ) : persona === 'Accountant' ? (
               <section className="persona-view accountant-view">
-                <div className="persona-banner accountant-banner">
-                  <h2> Accounts &amp; Fee Reconciliation Center</h2>
-                  <p>{schoolProfile.name} · Daily Collections &amp; Aging Matrix</p>
+                <div className="persona-hero-card" style={{ background: 'linear-gradient(135deg, #78350f 0%, #92400e 50%, #1e293b 100%)' }}>
+                  <div className="persona-hero-left">
+                    <span className="persona-hero-badge" style={{ background: 'rgba(255,255,255,0.15)', color: '#fde68a' }}>
+                      <CircleDollarSign size={13} />
+                      Fee Collections &amp; Cashier Reconciliation Desk
+                    </span>
+                    <h2>S. Venkat Rao (Chief Cashier &amp; Accounts Desk)</h2>
+                    <p>Counter Collection Desk · Instant CBSE &amp; GST Stamped Fee Vouchers</p>
+                  </div>
+                  <div className="persona-hero-actions">
+                    <button className="btn-hero-action" onClick={() => handleOpenFeeModal()} type="button">
+                      <CreditCard size={14} /> Record Counter Payment
+                    </button>
+                    <button className="btn-hero-action" onClick={() => handleExportReport('Fee Collection Ledger')} type="button">
+                      <FileBarChart size={14} /> Export Cashier Day-Book
+                    </button>
+                  </div>
                 </div>
+
                 <div className="content-grid">
-                  <article className="panel fees-panel">
+                  <article className="panel">
                     <div className="panel-heading">
                       <div>
-                        <h2>Collections &amp; Receivables</h2>
-                        <p>Term-wise aging breakdown</p>
+                        <h2>Today's Counter Collections by Mode</h2>
+                        <p>Total Collected Today: ₹1,42,800</p>
                       </div>
-                      <button
-                        className="btn-action-sm"
-                        id="btn-accountant-collect-fee"
-                        onClick={() => handleOpenFeeModal()}
-                        type="button"
-                      >
-                        <CreditCard size={14} />
-                        Record Payment
+                      <button className="btn-action-sm" onClick={() => handleOpenFeeModal()} type="button">
+                        <CreditCard size={14} /> New Receipt
                       </button>
                     </div>
-                    <div className="aging-list">
-                      {feeAging.map((item, index) => (
-                        <div className="aging-row" key={item.label}>
-                          <span className={`severity severity-${index + 1}`} />
-                          <div>
-                            <strong>{item.label}</strong>
-                            <small>{item.count} invoices</small>
-                          </div>
-                          <b>{item.amount}</b>
-                        </div>
-                      ))}
+                    <div className="timeline-list">
+                      <div className="timeline-item">
+                        <time style={{ color: 'var(--emerald)' }}>UPI</time>
+                        <div><strong>₹88,600 · Instant QR &amp; NetBanking</strong><span>12 successful digital transactions</span></div>
+                        <em style={{ color: 'var(--emerald)' }}>Settled</em>
+                      </div>
+                      <div className="timeline-item">
+                        <time style={{ color: 'var(--amber)' }}>CASH</time>
+                        <div><strong>₹24,000 · Cash Desk Counter 1</strong><span>3 physical cash receipts logged</span></div>
+                        <em style={{ color: 'var(--amber)' }}>Vaulted</em>
+                      </div>
+                      <div className="timeline-item">
+                        <time style={{ color: 'var(--primary)' }}>POS</time>
+                        <div><strong>₹30,200 · Debit / Credit Card POS</strong><span>4 card swipe transactions via ICICI</span></div>
+                        <em style={{ color: 'var(--primary)' }}>Batch Closed</em>
+                      </div>
                     </div>
                   </article>
 
                   <article className="panel">
                     <div className="panel-heading">
                       <div>
-                        <h2>Concession Policy Overview</h2>
+                        <h2>Institutional Concessions &amp; Subsidies</h2>
                         <p>Registered Fee Schemes</p>
                       </div>
                     </div>
                     <div className="timeline-list">
                       <div className="timeline-item">
-                        <time>25%</time>
-                        <div>
-                          <strong>Sibling Concession</strong>
-                          <span>42 active student concessions</span>
-                        </div>
-                        <em>Auto-applied</em>
+                        <time style={{ color: 'var(--primary)' }}>25%</time>
+                        <div><strong>Sibling Concession Policy</strong><span>42 students automatically enrolled</span></div>
+                        <em>Active</em>
                       </div>
                       <div className="timeline-item">
-                        <time>100%</time>
-                        <div>
-                          <strong>RTE Quota Allocation</strong>
-                          <span>28 students enrolled under RTE Section 12</span>
-                        </div>
-                        <em>Govt Subsidized</em>
+                        <time style={{ color: 'var(--emerald)' }}>100%</time>
+                        <div><strong>RTE Quota Allocation (Sec 12)</strong><span>28 students subsidized by State Govt</span></div>
+                        <em>Reimbursable</em>
+                      </div>
+                      <div className="timeline-item">
+                        <time style={{ color: 'var(--amber)' }}>50%</time>
+                        <div><strong>Teaching Staff Ward Discount</strong><span>14 faculty children enrolled</span></div>
+                        <em>HR Approved</em>
                       </div>
                     </div>
                   </article>
 
-                  <article className="panel daybook-panel">
+                  <article className="panel daybook-panel" style={{ gridColumn: '1 / -1' }}>
                     <div className="panel-heading">
                       <div>
-                        <h2>Cashier Day-Book &amp; Issued Receipts</h2>
-                        <p>{recentReceipts.length} collections reconciled today in local database</p>
+                        <h2>Live Cashier Day-Book &amp; Reconciled Receipts</h2>
+                        <p>{recentReceipts.length} collections reconciled in live SQLite database</p>
                       </div>
                       <button className="btn-action-sm" onClick={() => handleOpenFeeModal()} type="button">
-                        <CreditCard size={14} />
-                        New Payment
+                        <CreditCard size={14} /> Record Payment
                       </button>
                     </div>
                     <table className="daybook-table">
@@ -1178,25 +1255,25 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
                         </tr>
                       </thead>
                       <tbody>
-                        {recentReceipts.map((r: any) => (
+                        {recentReceipts.length === 0 ? (
+                          <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px' }}>No collections yet. Use "Record Payment" to generate voucher.</td></tr>
+                        ) : recentReceipts.map((r: any) => (
                           <tr key={r.receipt_number || r.id}>
                             <td><strong>{r.receipt_number}</strong></td>
                             <td>
                               <strong>{r.student_name}</strong>
-                              <small style={{ display: 'block', color: '#64748b' }}>{r.admission_number}</small>
+                              <small style={{ display: 'block', color: 'var(--text-muted)' }}>{r.admission_number}</small>
                             </td>
                             <td><span className="badge-status" style={{ color: '#0f5f59' }}>{r.payment_mode}</span></td>
-                            <td><strong style={{ color: '#16a34a' }}>₹{Number(r.amount_paid).toLocaleString('en-IN')}</strong></td>
+                            <td><strong style={{ color: 'var(--emerald)' }}>₹{Number(r.amount_paid).toLocaleString('en-IN')}</strong></td>
                             <td>{new Date(r.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</td>
                             <td>
                               <button
                                 className="tc-action-btn"
-                                id={`btn-reprint-${r.receipt_number?.replace(/\//g, '-')}`}
                                 onClick={() => handleRePrintReceipt(r)}
                                 type="button"
                               >
-                                <Printer size={12} />
-                                Re-Print
+                                <Printer size={12} /> Re-Print
                               </button>
                             </td>
                           </tr>
