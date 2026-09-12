@@ -686,9 +686,10 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
           </div>
         </header>
 
+        <div className="page-body">
         <div className="mobile-brand">
           <span className="brand-mark">CG</span>
-          <span>CampusGrid</span>
+          <span style={{ fontWeight: 650, fontSize: 14, color: 'var(--text-strong)' }}>CampusGrid</span>
         </div>
 
         <section className="command-row" aria-label="Quick actions">
@@ -728,8 +729,10 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
             {persona === 'Teacher' ? (
               <section className="persona-view teacher-view">
                 <div className="persona-banner">
-                  <h2>👩‍🏫 Teacher Workspace — Classes &amp; Attendance</h2>
-                  <p>Welcome back! You have 4 classes scheduled today at {schoolProfile.name}.</p>
+                  <div>
+                    <h2>Teacher Workspace</h2>
+                    <p>4 classes scheduled today · {schoolProfile.name}</p>
+                  </div>
                 </div>
                 <div className="teacher-grid">
                   <div className="panel">
@@ -809,7 +812,7 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
             ) : persona === 'Parent' ? (
               <section className="persona-view parent-view">
                 <div className="persona-banner parent-banner">
-                  <h2>👨‍👩‍👧 Parent Portal — Aarav Mehta (Grade 8A)</h2>
+                  <h2>‍‍ Parent Portal — Aarav Mehta (Grade 8A)</h2>
                   <p>Admission No: VIS-2026-0048 · Academic Year 2026-27</p>
                 </div>
                 <div className="content-grid">
@@ -870,7 +873,7 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
             ) : persona === 'Accountant' ? (
               <section className="persona-view accountant-view">
                 <div className="persona-banner accountant-banner">
-                  <h2>💳 Accounts &amp; Fee Reconciliation Center</h2>
+                  <h2> Accounts &amp; Fee Reconciliation Center</h2>
                   <p>{schoolProfile.name} · Daily Collections &amp; Aging Matrix</p>
                 </div>
                 <div className="content-grid">
@@ -1598,6 +1601,7 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
             </article>
           </section>
         )}
+        </div>{/* end page-body */}
       </section>
 
       <nav className="bottom-nav" aria-label="Mobile navigation">
@@ -1758,7 +1762,7 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
           <div className="tc-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <div>
-                <h2>📜 Issue Transfer Certificate (TC)</h2>
+                <h2> Issue Transfer Certificate (TC)</h2>
                 <p>Vidyuth International School · Official School Leaving Certificate</p>
               </div>
               <button className="close-btn" onClick={() => setShowTCModal(false)} type="button">
@@ -2196,7 +2200,7 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
               <div>
                 <div className="modal-header">
                   <div>
-                    <h2>💳 Fee Collection & Stamped Receipt</h2>
+                    <h2> Fee Collection & Stamped Receipt</h2>
                     <p>Record tuition & transport collections · Immediate bank reconciliation</p>
                   </div>
                   <button className="close-btn" onClick={() => setShowFeeModal(false)} type="button">
@@ -2435,7 +2439,7 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
           <div className="marks-modal-dialog" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <div>
-                <h2>📝 Grade Periodic Test 1 (PT1) — Mathematics</h2>
+                <h2> Grade Periodic Test 1 (PT1) — Mathematics</h2>
                 <p>Grade 10A · {marksRoster.length} Students · Auto-calculates CBSE 9-Point Grade</p>
               </div>
               <button className="close-btn" onClick={() => setShowMarksModal(false)} type="button">
@@ -2524,10 +2528,10 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
 
             <div className="role-chips-grid">
               {[
-                { role: 'Principal', uname: 'admin', label: '👑 Principal (Admin)' },
-                { role: 'Teacher', uname: 'teacher', label: '👩‍🏫 Lead Teacher' },
-                { role: 'Accountant', uname: 'accountant', label: '💳 Accounts Cashier' },
-                { role: 'Parent', uname: 'parent', label: '👨‍👩‍👧 Parent Portal' }
+                { role: 'Principal', uname: 'admin', label: ' Principal (Admin)' },
+                { role: 'Teacher', uname: 'teacher', label: '‍ Lead Teacher' },
+                { role: 'Accountant', uname: 'accountant', label: ' Accounts Cashier' },
+                { role: 'Parent', uname: 'parent', label: '‍‍ Parent Portal' }
               ].map((item) => (
                 <button
                   key={item.role}
