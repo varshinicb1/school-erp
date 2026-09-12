@@ -43,7 +43,7 @@ services:
     restart: unless-stopped
 
   backend:
-    image: frappe/erpnext:v16.34.2
+    image: frappe/erpnext:v15
     container_name: school-backend
     environment:
       - DB_HOST=mariadb
