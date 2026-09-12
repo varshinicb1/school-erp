@@ -1,10 +1,14 @@
-# 🚀 Render.com Deployment Guide: Indian School OS
+# 🚀 Render.com Deployment: Indian School OS (LIVE)
 ## Production Cloud Deployment via Render Blueprint & Docker
 
-> **Target Platform:** Render.com (Free or Starter Web Service)  
-> **Deployment Model:** Fully automated via `render.yaml` or multi-stage `Dockerfile`  
-> **Health Check Endpoint:** `/api/v1/health`  
-> **Persistent Disk:** 1 GB mount at `/app/school-os/data` (preserves all SQLite records)  
+> **Deployment Status:** ✅ **LIVE & OPERATIONAL**  
+> **Production URL:** [https://indian-school-os.onrender.com](https://indian-school-os.onrender.com)  
+> **Health Check Endpoint:** [https://indian-school-os.onrender.com/api/v1/health](https://indian-school-os.onrender.com/api/v1/health)  
+> **Render Dashboard:** [https://dashboard.render.com/web/srv-daioe1nqj5pc73ausq40](https://dashboard.render.com/web/srv-daioe1nqj5pc73ausq40)  
+> **GitHub Repository:** [https://github.com/varshinicb1/school-erp](https://github.com/varshinicb1/school-erp)  
+> **Service ID:** `srv-daioe1nqj5pc73ausq40`  
+> **Region:** Singapore (`singapore`) — Lowest latency for Indian institutions  
+> **Runtime:** Docker Container (Node 20 Vite Frontend + Python 3.11 Turnkey Server)  
 
 ---
 
