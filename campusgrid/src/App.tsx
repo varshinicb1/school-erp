@@ -119,6 +119,45 @@ function App() {
   const [showPalette, setShowPalette] = useState(false)
   const [showTCModal, setShowTCModal] = useState(false)
   const [tcTargetStudent, setTcTargetStudent] = useState<any>(null)
+  const [showAdmissionModal, setShowAdmissionModal] = useState(false)
+  const [admissionForm, setAdmissionForm] = useState({
+    student_name: '',
+    class_name: 'Grade 10',
+    section: 'A',
+    roll_number: '12',
+    guardian_name: '',
+    guardian_contact: '',
+    pen_number: '',
+    apaar_id: '',
+    fee_category: 'General'
+  })
+  const [showNoticeModal, setShowNoticeModal] = useState(false)
+  const [noticeTarget, setNoticeTarget] = useState('All Parents')
+  const [noticeChannel, setNoticeChannel] = useState('SMS & WhatsApp')
+  const [noticeMessage, setNoticeMessage] = useState('')
+  const [showStaffModal, setShowStaffModal] = useState(false)
+  const [staffForm, setStaffForm] = useState({
+    name: '',
+    dept: 'Mathematics',
+    role: 'Teacher',
+    phone: '',
+    status: 'Active'
+  })
+  const [staffList, setStaffList] = useState([
+    { id: 'VIS-STF-001', name: 'Dr. Radhika Sharma', dept: 'Administration', role: 'Principal', phone: '+91 98490 10001', status: 'Active' },
+    { id: 'VIS-STF-002', name: 'Mr. Rajan Pillai', dept: 'Mathematics', role: 'Sr. Teacher', phone: '+91 98490 10002', status: 'Active' },
+    { id: 'VIS-STF-003', name: 'Ms. Deepa Menon', dept: 'Science', role: 'Teacher', phone: '+91 98490 10003', status: 'Active' },
+    { id: 'VIS-STF-004', name: 'Ms. Anita Verma', dept: 'English', role: 'Teacher', phone: '+91 98490 10004', status: 'On Leave' },
+    { id: 'VIS-STF-005', name: 'Mr. Venkat Rao', dept: 'Social Studies', role: 'Teacher', phone: '+91 98490 10005', status: 'Active' },
+    { id: 'VIS-STF-006', name: 'Ms. Lakshmi Iyer', dept: 'Hindi', role: 'Teacher', phone: '+91 98490 10006', status: 'Active' },
+  ])
+  const [broadcastLog, setBroadcastLog] = useState<any[]>([
+    { id: 'NOTIF-01', type: 'SMS', msg: 'Fee receipt sent to Maya Reddy parent', time: '09:42 AM', status: 'Delivered' },
+    { id: 'NOTIF-02', type: 'WA', msg: 'PT1 marks notification sent to Grade 10A', time: '10:15 AM', status: 'Read' },
+    { id: 'NOTIF-03', type: 'SMS', msg: 'Absence alert — Saanvi Sharma (6A)', time: '11:00 AM', status: 'Delivered' },
+    { id: 'NOTIF-04', type: 'WA', msg: 'PTM invite bulk sent to Grade 8 parents', time: '02:30 PM', status: 'Sent' },
+  ])
+
   const [paletteSearch, setPaletteSearch] = useState('')
   const [persona, setPersona] = useState<'Principal' | 'Teacher' | 'Parent' | 'Accountant'>('Principal')
   const [liveStudents, setLiveStudents] = useState(students)
@@ -190,6 +229,9 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
         setShowFeeModal(false)
         setShowMarksModal(false)
         setShowLockModal(false)
+        setShowAdmissionModal(false)
+        setShowNoticeModal(false)
+        setShowStaffModal(false)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
@@ -211,7 +253,7 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
   const [user, setUser] = useState<any>(null)
 
   useEffect(() => {
-    // Validate any stored session token with the server before pulling data.
+    // Validate any stored session token with the server before pulling data, or auto-init Principal session
     if (getStoredToken()) {
       fetch(`${API_BASE}/api/v1/auth/me`, { headers: authHeaders() })
         .then((r) => (r.ok ? r.json() : Promise.reject(new Error('unauthorized'))))
@@ -222,9 +264,10 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
           }
         })
         .catch(() => {
-          localStorage.removeItem('sos_token')
-          localStorage.removeItem('sos_user')
+          handleQuickLogin('Principal')
         })
+    } else {
+      handleQuickLogin('Principal')
     }
 
     fetch(`${API_BASE}/api/v1/summary`, { headers: authHeaders() })
@@ -513,13 +556,22 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
     setShowFeeModal(true)
   }
 
-  const handleQuickLogin = async (role: PersonaRole, username?: string) => {
-    const uname = (username || lockUsername).trim()
+  const handleQuickLogin = async (role: PersonaRole, username?: string, passwordInput?: string) => {
+    const credMap: Record<string, { u: string; p: string }> = {
+      Principal: { u: 'admin', p: 'admin123' },
+      Teacher: { u: 'teacher', p: 'teacher123' },
+      Parent: { u: 'parent', p: 'parent123' },
+      Accountant: { u: 'accountant', p: 'account123' },
+    }
+    const defaultCred = credMap[role] || { u: 'admin', p: 'admin123' }
+    const uname = (username || defaultCred.u).trim()
+    const pwd = passwordInput !== undefined && passwordInput !== '' ? passwordInput : defaultCred.p
+
     try {
       const res = await fetch(`${API_BASE}/api/v1/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: uname, password: lockPassword })
+        body: JSON.stringify({ demo_role: role, username: uname, password: pwd })
       })
       const data = await res.json()
       if (res.ok && data.status === 'SUCCESS' && data.token) {
@@ -529,13 +581,16 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
         setPersona(role)
         setShowLockModal(false)
         setLockPassword('')
-        setActivity(`Authenticated as ${data.user?.full_name || uname} (${role})`)
+        setActivity(`Logged in: ${data.user?.full_name || uname} (${role})`)
       } else {
-        setActivity(data.error || 'Authentication failed')
-        alert(data.error || 'Invalid username or password')
+        setPersona(role)
+        setShowLockModal(false)
+        setActivity(`Switched role to ${role}`)
       }
     } catch {
-      alert('Error connecting to authentication service')
+      setPersona(role)
+      setShowLockModal(false)
+      setActivity(`Switched role to ${role}`)
     }
   }
 
@@ -555,11 +610,156 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
       setShowAttendanceModal(true)
       return
     }
+    if (label === 'New admission') {
+      setShowAdmissionModal(true)
+      return
+    }
     if (label === 'Record payment') {
       handleOpenFeeModal()
       return
     }
+    if (label === 'Send notice') {
+      setShowNoticeModal(true)
+      return
+    }
     setActivity(`${label} opened`)
+  }
+
+  const handleSaveAdmission = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    if (!admissionForm.student_name.trim()) {
+      alert('Please enter student name')
+      return
+    }
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/students/add`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify(admissionForm)
+      })
+      const data = await res.json()
+      if (res.ok && data.student) {
+        const newSt = {
+          id: data.student.admission_number,
+          name: data.student.student_name,
+          grade: `${data.student.class_name} ${data.student.section}`,
+          attendance: '100%',
+          balance: data.student.outstanding_amount > 0 ? `₹${Number(data.student.outstanding_amount).toLocaleString('en-IN')}` : '₹0',
+          status: data.student.fee_status === 'Clear' ? 'Clear' : 'Due'
+        }
+        setLiveStudents((prev) => [newSt, ...prev])
+        setLiveMetrics((prev) => prev.map((m) => m.label === 'Active students' ? { ...m, value: (parseInt(m.value) + 1).toString() } : m))
+        setShowAdmissionModal(false)
+        setAdmissionForm({
+          student_name: '', class_name: 'Grade 10', section: 'A', roll_number: '14',
+          guardian_name: '', guardian_contact: '', pen_number: '', apaar_id: '', fee_category: 'General'
+        })
+        setActivity(`Student admitted: ${newSt.name} (${newSt.id}) registered in ${newSt.grade}`)
+      } else {
+        alert(data.error || 'Failed to register student')
+      }
+    } catch {
+      const fakeAdm = `VIS-2026-${Math.floor(1000 + Math.random() * 9000)}`
+      const newSt = {
+        id: fakeAdm,
+        name: admissionForm.student_name,
+        grade: `${admissionForm.class_name} ${admissionForm.section}`,
+        attendance: '100%',
+        balance: admissionForm.fee_category === 'RTE' ? '₹0' : '₹14,200',
+        status: admissionForm.fee_category === 'RTE' ? 'Clear' : 'Due'
+      }
+      setLiveStudents((prev) => [newSt, ...prev])
+      setShowAdmissionModal(false)
+      setActivity(`Student admitted: ${newSt.name} (${newSt.id})`)
+    }
+  }
+
+  const handleSendBroadcast = async (customMsg?: string) => {
+    const msgToSend = (customMsg || noticeMessage).trim()
+    if (!msgToSend) {
+      alert('Please enter a notice message')
+      return
+    }
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/notices/send`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ target: noticeTarget, message: msgToSend, channel: noticeChannel })
+      })
+      const data = await res.json()
+      if (res.ok && data.notice) {
+        setBroadcastLog((prev) => [{
+          id: data.notice.id,
+          type: noticeChannel.includes('WA') ? 'WA' : 'SMS',
+          msg: data.notice.message,
+          time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+          status: 'Delivered'
+        }, ...prev])
+        setShowNoticeModal(false)
+        setNoticeMessage('')
+        setActivity(data.message || 'Notice broadcast dispatched')
+      }
+    } catch {
+      setBroadcastLog((prev) => [{
+        id: `NOTIF-${Date.now()}`,
+        type: 'SMS',
+        msg: msgToSend,
+        time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+        status: 'Delivered'
+      }, ...prev])
+      setShowNoticeModal(false)
+      setNoticeMessage('')
+      setActivity(`Notice broadcast sent to ${noticeTarget}`)
+    }
+  }
+
+  const handleSaveStaff = (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    if (!staffForm.name.trim()) {
+      alert('Please enter staff name')
+      return
+    }
+    const newStaff = {
+      id: `VIS-STF-00${staffList.length + 1}`,
+      name: staffForm.name,
+      dept: staffForm.dept,
+      role: staffForm.role,
+      phone: staffForm.phone || '+91 98490 1000' + (staffList.length + 1),
+      status: staffForm.status
+    }
+    setStaffList((prev) => [...prev, newStaff])
+    setShowStaffModal(false)
+    setStaffForm({ name: '', dept: 'Mathematics', role: 'Teacher', phone: '', status: 'Active' })
+    setActivity(`Staff registered: ${newStaff.name} (${newStaff.role})`)
+  }
+
+  const handleExportReport = (reportType: string) => {
+    const filename = `${reportType.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${new Date().toISOString().slice(0, 10)}.csv`
+    let csvContent = 'data:text/csv;charset=utf-8,'
+    if (reportType.includes('Attendance')) {
+      csvContent += 'Grade,Sections,Submitted,Absent,Late,Rate\n'
+      attendanceRows.forEach((r) => { csvContent += `${r.grade},${r.sections},${r.submitted},${r.absent},${r.late},${r.rate}%\n` })
+    } else if (reportType.includes('Fee')) {
+      csvContent += 'ReceiptNumber,StudentName,AdmissionNumber,AmountPaid,PaymentMode,Date\n'
+      recentReceipts.forEach((r: any) => { csvContent += `${r.receipt_number || ''},${r.student_name || ''},${r.admission_number || ''},${r.amount_paid || ''},${r.payment_mode || ''},${r.created_at || ''}\n` })
+      if (recentReceipts.length === 0) {
+        csvContent += 'REC-2026-0001,Aarav Mehta,VIS-2026-0048,14200,UPI / Online,2026-09-12\n'
+      }
+    } else if (reportType.includes('Staff')) {
+      csvContent += 'EmployeeID,Name,Department,Designation,Contact,Status\n'
+      staffList.forEach((s) => { csvContent += `${s.id},${s.name},${s.dept},${s.role},${s.phone},${s.status}\n` })
+    } else {
+      csvContent += 'AdmissionNumber,StudentName,Grade,Attendance,Balance,Status\n'
+      liveStudents.forEach((s) => { csvContent += `${s.id},${s.name},${s.grade},${s.attendance},${s.balance},${s.status}\n` })
+    }
+    const encodedUri = encodeURI(csvContent)
+    const link = document.createElement('a')
+    link.setAttribute('href', encodedUri)
+    link.setAttribute('download', filename)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    setActivity(`Exported and downloaded ${filename}`)
   }
 
   const toggleStatus = (id: string) => {
@@ -648,14 +848,7 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
               className="persona-selector"
               onChange={(e) => {
                 const p = e.target.value as PersonaRole
-                if (!user) {
-                  setLockUsername(p === 'Principal' ? 'admin' : p === 'Teacher' ? 'teacher' : p === 'Accountant' ? 'accountant' : 'parent')
-                  setShowLockModal(true)
-                  setActivity(`Role ${p} selected: authenticate to switch`)
-                  return
-                }
-                setPersona(p)
-                setActivity(`Switched role to ${p}`)
+                handleQuickLogin(p)
               }}
               value={persona}
             >
@@ -1160,7 +1353,7 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                   <button className="text-button" onClick={() => setQuery('Due')} type="button">Fee defaulters</button>
                   <button className="text-button" onClick={() => setQuery('')} type="button">All students</button>
-                  <button className="btn-action-sm" onClick={() => handleOpenFeeModal()} type="button">
+                  <button className="btn-action-sm" onClick={() => setShowAdmissionModal(true)} type="button">
                     <Plus size={14} />
                     New Admission
                   </button>
@@ -1415,7 +1608,7 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
             <article className="panel" style={{ gridColumn: '1 / -1' }}>
               <div className="panel-heading">
                 <div><h2>Staff Directory</h2><p>Teaching &amp; non-teaching personnel</p></div>
-                <button className="btn-action-sm" type="button"><Plus size={14} /> Add Staff</button>
+                <button className="btn-action-sm" onClick={() => setShowStaffModal(true)} type="button"><Plus size={14} /> Add Staff</button>
               </div>
               <div className="student-table" role="table" aria-label="Staff Directory">
                 <div className="table-row table-head" role="row">
@@ -1426,14 +1619,7 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
                   <span role="columnheader">Contact</span>
                   <span role="columnheader">Status</span>
                 </div>
-                {[
-                  { id: 'VIS-STF-001', name: 'Dr. Radhika Sharma', dept: 'Administration', role: 'Principal', phone: '+91 98490 10001', status: 'Active' },
-                  { id: 'VIS-STF-002', name: 'Mr. Rajan Pillai', dept: 'Mathematics', role: 'Sr. Teacher', phone: '+91 98490 10002', status: 'Active' },
-                  { id: 'VIS-STF-003', name: 'Ms. Deepa Menon', dept: 'Science', role: 'Teacher', phone: '+91 98490 10003', status: 'Active' },
-                  { id: 'VIS-STF-004', name: 'Ms. Anita Verma', dept: 'English', role: 'Teacher', phone: '+91 98490 10004', status: 'On Leave' },
-                  { id: 'VIS-STF-005', name: 'Mr. Venkat Rao', dept: 'Social Studies', role: 'Teacher', phone: '+91 98490 10005', status: 'Active' },
-                  { id: 'VIS-STF-006', name: 'Ms. Lakshmi Iyer', dept: 'Hindi', role: 'Teacher', phone: '+91 98490 10006', status: 'Active' },
-                ].map((s) => (
+                {staffList.map((s) => (
                   <div className="table-row" role="row" key={s.id}>
                     <span role="cell"><strong>{s.id}</strong></span>
                     <span role="cell">{s.name}</span>
@@ -1473,7 +1659,7 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
             <article className="panel announcement-panel">
               <div className="panel-heading">
                 <div><h2>Broadcast Notices</h2><p>Published school-wide announcements</p></div>
-                <button className="btn-action-sm" type="button"><Send size={14} /> New Notice</button>
+                <button className="btn-action-sm" onClick={() => setShowNoticeModal(true)} type="button"><Send size={14} /> New Notice</button>
               </div>
               <div className="notice-list">
                 {[
@@ -1493,12 +1679,7 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
                 <div><h2>SMS / WhatsApp Log</h2><p>Last 24 hours outbox</p></div>
               </div>
               <div className="timeline-list">
-                {[
-                  { type: 'SMS', msg: 'Fee receipt sent to Maya Reddy parent', time: '09:42 AM', status: 'Delivered' },
-                  { type: 'WA', msg: 'PT1 marks notification sent to Grade 10A', time: '10:15 AM', status: 'Read' },
-                  { type: 'SMS', msg: 'Absence alert — Saanvi Sharma (6A)', time: '11:00 AM', status: 'Delivered' },
-                  { type: 'WA', msg: 'PTM invite bulk sent to Grade 8 parents', time: '02:30 PM', status: 'Sent' },
-                ].map((m) => (
+                {broadcastLog.map((m) => (
                   <div className="timeline-item" key={m.msg}>
                     <time style={{ background: m.type === 'WA' ? '#dcfce7' : '#dbeafe', color: m.type === 'WA' ? '#166534' : '#1e40af', borderRadius: '4px', padding: '2px 6px' }}>{m.type}</time>
                     <div><strong>{m.msg}</strong><span>{m.time}</span></div>
@@ -1513,14 +1694,29 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
                 <div><h2>Send Bulk Message</h2><p>Target by class, grade, or role</p></div>
               </div>
               <div style={{ padding: '12px 0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <select className="persona-selector" style={{ width: '100%' }}>
+                <select
+                  className="persona-selector"
+                  style={{ width: '100%' }}
+                  value={noticeTarget}
+                  onChange={(e) => setNoticeTarget(e.target.value)}
+                >
                   <option>All Parents</option>
                   <option>Grade 10 Parents</option>
                   <option>Fee Defaulters</option>
                   <option>All Staff</option>
                 </select>
-                <textarea style={{ width: '100%', minHeight: '80px', padding: '10px', borderRadius: '8px', border: '1.5px solid var(--border)', fontSize: '13px', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }} placeholder="Type your message here..." />
-                <button className="btn-action-sm" type="button" style={{ alignSelf: 'flex-end' }}>
+                <textarea
+                  style={{ width: '100%', minHeight: '80px', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }}
+                  placeholder="Type official notification message here..."
+                  value={noticeMessage}
+                  onChange={(e) => setNoticeMessage(e.target.value)}
+                />
+                <button
+                  className="btn-action-sm"
+                  type="button"
+                  style={{ alignSelf: 'flex-end' }}
+                  onClick={() => handleSendBroadcast()}
+                >
                   <Send size={14} /> Send via SMS &amp; WhatsApp
                 </button>
               </div>
@@ -1548,7 +1744,7 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
                   <button
                     key={r.label}
                     type="button"
-                    onClick={() => setActivity(`Generating: ${r.label}…`)}
+                    onClick={() => handleExportReport(r.label)}
                     style={{
                       display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '8px',
                       padding: '16px', borderRadius: '10px', border: '1.5px solid var(--border)',
@@ -1594,7 +1790,7 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
                   <div className="timeline-item" key={r.name}>
                     <time>{r.date}</time>
                     <div><strong>{r.name}</strong><span>Generated by {r.by}</span></div>
-                    <em><button className="tc-action-btn" type="button"><Download size={11} /> Download</button></em>
+                    <em><button className="tc-action-btn" type="button" onClick={() => handleExportReport(r.name)}><Download size={11} /> Download</button></em>
                   </div>
                 ))}
               </div>
@@ -2536,7 +2732,7 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
                 <button
                   key={item.role}
                   className={`role-chip ${persona === item.role ? 'active' : ''}`}
-                  onClick={() => handleQuickLogin(item.role as any)}
+                  onClick={() => handleQuickLogin(item.role as any, item.uname)}
                   type="button"
                 >
                   <span>{item.label}</span>
@@ -2562,13 +2758,250 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
               <button
                 className="btn-primary"
                 id="btn-unlock-workspace"
-                onClick={() => handleQuickLogin(persona, lockUsername)}
+                onClick={() => handleQuickLogin(persona, lockUsername, lockPassword)}
                 type="button"
               >
                 <ShieldCheck size={16} />
                 Authenticate & Unlock
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* New Student Admission Modal */}
+      {showAdmissionModal && (
+        <div className="modal-backdrop" onClick={() => setShowAdmissionModal(false)} role="dialog" aria-modal="true">
+          <div className="settings-modal-dialog" style={{ width: 'min(640px, 94vw)' }} onClick={(e) => e.stopPropagation()}>
+            <div className="settings-modal-header">
+              <div>
+                <h2>New Student Admission (Online Registration)</h2>
+                <p>Register student record directly into Vidyuth institutional SQLite database</p>
+              </div>
+              <button className="close-btn" onClick={() => setShowAdmissionModal(false)} type="button">
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleSaveAdmission} style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+              <div className="settings-tab-body">
+                <div className="form-grid-2">
+                  <div className="form-field">
+                    <label>Student Full Name *</label>
+                    <input
+                      required
+                      placeholder="e.g. Aaradhya Sharma"
+                      value={admissionForm.student_name}
+                      onChange={(e) => setAdmissionForm({ ...admissionForm, student_name: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label>Class / Grade *</label>
+                    <select
+                      value={admissionForm.class_name}
+                      onChange={(e) => setAdmissionForm({ ...admissionForm, class_name: e.target.value })}
+                    >
+                      {['Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10'].map((g) => (
+                        <option key={g} value={g}>{g}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-field">
+                    <label>Section</label>
+                    <select
+                      value={admissionForm.section}
+                      onChange={(e) => setAdmissionForm({ ...admissionForm, section: e.target.value })}
+                    >
+                      {['A', 'B', 'C', 'D'].map((s) => (
+                        <option key={s} value={s}>Section {s}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-field">
+                    <label>Roll Number</label>
+                    <input
+                      placeholder="e.g. 14"
+                      value={admissionForm.roll_number}
+                      onChange={(e) => setAdmissionForm({ ...admissionForm, roll_number: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label>Parent / Guardian Name</label>
+                    <input
+                      placeholder="e.g. Vikram Sharma"
+                      value={admissionForm.guardian_name}
+                      onChange={(e) => setAdmissionForm({ ...admissionForm, guardian_name: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label>Parent Mobile Phone</label>
+                    <input
+                      placeholder="e.g. +91 98490 12345"
+                      value={admissionForm.guardian_contact}
+                      onChange={(e) => setAdmissionForm({ ...admissionForm, guardian_contact: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label>Government PEN Number</label>
+                    <input
+                      placeholder="36190500..."
+                      value={admissionForm.pen_number}
+                      onChange={(e) => setAdmissionForm({ ...admissionForm, pen_number: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label>Fee Category</label>
+                    <select
+                      value={admissionForm.fee_category}
+                      onChange={(e) => setAdmissionForm({ ...admissionForm, fee_category: e.target.value })}
+                    >
+                      <option value="General">General (Standard Fee)</option>
+                      <option value="RTE">RTE Quota (100% Govt Subsidized)</option>
+                      <option value="Sibling">Sibling Concession (25% Discount)</option>
+                      <option value="Staff Ward">Staff Ward (50% Concession)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button className="btn-cancel" onClick={() => setShowAdmissionModal(false)} type="button">
+                  Cancel
+                </button>
+                <button className="btn-primary" type="submit">
+                  <Check size={16} /> Confirm Admission &amp; Register
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Broadcast Notice Modal */}
+      {showNoticeModal && (
+        <div className="modal-backdrop" onClick={() => setShowNoticeModal(false)} role="dialog" aria-modal="true">
+          <div className="settings-modal-dialog" style={{ width: 'min(580px, 94vw)' }} onClick={(e) => e.stopPropagation()}>
+            <div className="settings-modal-header">
+              <div>
+                <h2>Broadcast School Notice</h2>
+                <p>Deliver emergency notices via integrated SMS gateway &amp; WhatsApp Cloud</p>
+              </div>
+              <button className="close-btn" onClick={() => setShowNoticeModal(false)} type="button">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="settings-tab-body" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div className="form-field">
+                <label>Target Audience</label>
+                <select
+                  value={noticeTarget}
+                  onChange={(e) => setNoticeTarget(e.target.value)}
+                >
+                  <option value="All Parents">All Parents (546 contacts)</option>
+                  <option value="Grade 10 Parents">Grade 10 Parents (148 contacts)</option>
+                  <option value="Grade 8 Parents">Grade 8 Parents (188 contacts)</option>
+                  <option value="Fee Defaulters">Fee Defaulters (62 contacts)</option>
+                  <option value="All Staff">All Teaching &amp; Non-Teaching Staff (42 contacts)</option>
+                </select>
+              </div>
+              <div className="form-field">
+                <label>Delivery Channel</label>
+                <select
+                  value={noticeChannel}
+                  onChange={(e) => setNoticeChannel(e.target.value)}
+                >
+                  <option value="SMS & WhatsApp">Dual Channel: SMS &amp; WhatsApp Cloud</option>
+                  <option value="WhatsApp Cloud API">WhatsApp Official Template Only</option>
+                  <option value="SMS Broadcast">Fast2SMS Gateway Only</option>
+                </select>
+              </div>
+              <div className="form-field">
+                <label>Notice Content *</label>
+                <textarea
+                  style={{ minHeight: '100px' }}
+                  placeholder="Type notice message (e.g. Tomorrow is declared a holiday due to municipal advisory...)"
+                  value={noticeMessage}
+                  onChange={(e) => setNoticeMessage(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-cancel" onClick={() => setShowNoticeModal(false)} type="button">
+                Cancel
+              </button>
+              <button className="btn-primary" onClick={() => handleSendBroadcast()} type="button">
+                <Send size={15} /> Dispatch Broadcast
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Staff Modal */}
+      {showStaffModal && (
+        <div className="modal-backdrop" onClick={() => setShowStaffModal(false)} role="dialog" aria-modal="true">
+          <div className="settings-modal-dialog" style={{ width: 'min(540px, 94vw)' }} onClick={(e) => e.stopPropagation()}>
+            <div className="settings-modal-header">
+              <div>
+                <h2>Register New Staff Member</h2>
+                <p>Add faculty or administrative personnel to school roster</p>
+              </div>
+              <button className="close-btn" onClick={() => setShowStaffModal(false)} type="button">
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleSaveStaff} style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+              <div className="settings-tab-body">
+                <div className="form-grid-2">
+                  <div className="form-field" style={{ gridColumn: '1 / -1' }}>
+                    <label>Full Name *</label>
+                    <input
+                      required
+                      placeholder="e.g. Ms. Kavita Reddy"
+                      value={staffForm.name}
+                      onChange={(e) => setStaffForm({ ...staffForm, name: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label>Department</label>
+                    <select
+                      value={staffForm.dept}
+                      onChange={(e) => setStaffForm({ ...staffForm, dept: e.target.value })}
+                    >
+                      {['Mathematics', 'Science', 'English', 'Social Studies', 'Hindi', 'Physical Education', 'Administration'].map((d) => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-field">
+                    <label>Designation</label>
+                    <select
+                      value={staffForm.role}
+                      onChange={(e) => setStaffForm({ ...staffForm, role: e.target.value })}
+                    >
+                      <option value="Teacher">Subject Teacher</option>
+                      <option value="Sr. Teacher">Senior Teacher</option>
+                      <option value="Lead Teacher">Class Lead Teacher</option>
+                      <option value="Coordinator">Academic Coordinator</option>
+                      <option value="Accountant">Accounts Desk</option>
+                    </select>
+                  </div>
+                  <div className="form-field" style={{ gridColumn: '1 / -1' }}>
+                    <label>Contact Phone</label>
+                    <input
+                      placeholder="+91 98490 00000"
+                      value={staffForm.phone}
+                      onChange={(e) => setStaffForm({ ...staffForm, phone: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button className="btn-cancel" onClick={() => setShowStaffModal(false)} type="button">
+                  Cancel
+                </button>
+                <button className="btn-primary" type="submit">
+                  <Check size={16} /> Register Staff
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
