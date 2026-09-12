@@ -89,7 +89,7 @@ const announcements = [
   'Science fair registration closes today',
 ]
 
-const API_BASE = (typeof window !== 'undefined' && window.location.port === '5050') ? '' : 'http://127.0.0.1:5050'
+const API_BASE = (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.port === '3000')) ? 'http://127.0.0.1:5050' : ''
 
 function App() {
   const [activeNav, setActiveNav] = useState('Dashboard')
@@ -1343,7 +1343,7 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
                 className={`settings-tab-btn ${settingsTab === 'backups' ? 'active' : ''}`}
                 onClick={() => {
                   setSettingsTab('backups')
-                  fetch('http://127.0.0.1:5050/api/v1/backup/list')
+                  fetch(`${API_BASE}/api/v1/backup/list`)
                     .then((r) => r.json())
                     .then((d) => { if (d.snapshots) setBackupSnapshots(d.snapshots) })
                 }}
@@ -1616,7 +1616,7 @@ VIS-2026-0902,Sneha Rao,Grade 10,A,36190500200,9876-5432-1098,Mrs. S. Rao,+91 98
                       </p>
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
-                      <button className="btn-secondary" onClick={() => window.open('http://127.0.0.1:5050/api/v1/backup/download')} type="button">
+                      <button className="btn-secondary" onClick={() => window.open(`${API_BASE}/api/v1/backup/download`)} type="button">
                         <Download size={15} />
                         Download Full Database (.db)
                       </button>
