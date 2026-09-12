@@ -1,0 +1,64 @@
+{
+ "actions": [],
+ "creation": "2026-09-12 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_name",
+  "academic_class",
+  "room_number",
+  "max_students",
+  "class_teacher"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Section Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "academic_class",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Academic Class",
+   "options": "Academic Class",
+   "reqd": 1
+  },
+  {
+   "fieldname": "room_number",
+   "fieldtype": "Data",
+   "label": "Room Number"
+  },
+  {
+   "default": "40",
+   "fieldname": "max_students",
+   "fieldtype": "Int",
+   "label": "Max Capacity"
+  },
+  {
+   "fieldname": "class_teacher",
+   "fieldtype": "Link",
+   "label": "Class Teacher (Employee)",
+   "options": "Employee"
+  }
+ ],
+ "module": "Academics",
+ "name": "Class Section",
+ "naming_rule": "Expression",
+ "autoname": "format:{academic_class}-{section_name}",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "read": 1,
+   "write": 1,
+   "role": "System Manager"
+  },
+  {
+   "read": 1,
+   "role": "Academic User"
+  }
+ ]
+}

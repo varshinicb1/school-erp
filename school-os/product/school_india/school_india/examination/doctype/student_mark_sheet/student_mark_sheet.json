@@ -1,0 +1,100 @@
+{
+ "actions": [],
+ "creation": "2026-09-12 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "student",
+  "student_name",
+  "exam_cycle",
+  "academic_class",
+  "section",
+  "total_marks_obtained",
+  "maximum_marks",
+  "aggregate_percentage",
+  "cbse_grade",
+  "result_status"
+ ],
+ "fields": [
+  {
+   "fieldname": "student",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Student",
+   "options": "Student",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "student.title",
+   "fieldname": "student_name",
+   "fieldtype": "Data",
+   "label": "Student Name"
+  },
+  {
+   "fieldname": "exam_cycle",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Exam Cycle",
+   "options": "CBSE Exam Cycle",
+   "reqd": 1
+  },
+  {
+   "fieldname": "academic_class",
+   "fieldtype": "Link",
+   "label": "Academic Class",
+   "options": "Academic Class"
+  },
+  {
+   "fieldname": "section",
+   "fieldtype": "Link",
+   "label": "Section",
+   "options": "Class Section"
+  },
+  {
+   "fieldname": "total_marks_obtained",
+   "fieldtype": "Float",
+   "label": "Total Obtained"
+  },
+  {
+   "fieldname": "maximum_marks",
+   "fieldtype": "Float",
+   "label": "Maximum Marks"
+  },
+  {
+   "fieldname": "aggregate_percentage",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "label": "Percentage"
+  },
+  {
+   "fieldname": "cbse_grade",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "CBSE Grade"
+  },
+  {
+   "fieldname": "result_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Passed\nCompartment\nFailed\nAbsent",
+   "default": "Passed"
+  }
+ ],
+ "module": "Examination",
+ "name": "Student Mark Sheet",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "read": 1,
+   "write": 1,
+   "role": "System Manager"
+  },
+  {
+   "read": 1,
+   "write": 1,
+   "role": "Academic User"
+  }
+ ]
+}

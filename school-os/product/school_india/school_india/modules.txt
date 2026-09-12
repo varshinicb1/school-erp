@@ -1,0 +1,44 @@
+[
+    {
+        "module_name": "Academics",
+        "color": "blue",
+        "icon": "octicon octicon-mortar-board",
+        "type": "module",
+        "label": "Academics"
+    },
+    {
+        "module_name": "Examination",
+        "color": "green",
+        "icon": "octicon octicon-checklist",
+        "type": "module",
+        "label": "Examination"
+    },
+    {
+        "module_name": "Fees",
+        "color": "orange",
+        "icon": "octicon octicon-credit-card",
+        "type": "module",
+        "label": "Fees & Concessions"
+    },
+    {
+        "module_name": "Government Data",
+        "color": "purple",
+        "icon": "octicon octicon-shield",
+        "type": "module",
+        "label": "Government Data"
+    },
+    {
+        "module_name": "Certificates",
+        "color": "teal",
+        "icon": "octicon octicon-file",
+        "type": "module",
+        "label": "Certificates"
+    },
+    {
+        "module_name": "Transport",
+        "color": "yellow",
+        "icon": "octicon octicon-package",
+        "type": "module",
+        "label": "Transport"
+    }
+]

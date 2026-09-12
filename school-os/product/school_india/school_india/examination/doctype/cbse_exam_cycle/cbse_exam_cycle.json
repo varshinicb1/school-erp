@@ -1,0 +1,68 @@
+{
+ "actions": [],
+ "creation": "2026-09-12 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "cycle_name",
+  "exam_type",
+  "academic_year",
+  "start_date",
+  "end_date",
+  "weightage_percentage"
+ ],
+ "fields": [
+  {
+   "fieldname": "cycle_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Cycle Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "exam_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Exam Type",
+   "options": "Periodic Test 1 (PT1)\nPeriodic Test 2 (PT2)\nHalf Yearly / Term 1\nPeriodic Test 3 (PT3)\nAnnual Examination / Term 2",
+   "reqd": 1
+  },
+  {
+   "fieldname": "academic_year",
+   "fieldtype": "Link",
+   "label": "Academic Year",
+   "options": "Academic Year"
+  },
+  {
+   "fieldname": "start_date",
+   "fieldtype": "Date",
+   "label": "Start Date"
+  },
+  {
+   "fieldname": "end_date",
+   "fieldtype": "Date",
+   "label": "End Date"
+  },
+  {
+   "fieldname": "weightage_percentage",
+   "fieldtype": "Percent",
+   "label": "Weightage %",
+   "default": "20.0"
+  }
+ ],
+ "module": "Examination",
+ "name": "CBSE Exam Cycle",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "read": 1,
+   "write": 1,
+   "role": "System Manager"
+  },
+  {
+   "read": 1,
+   "role": "Academic User"
+  }
+ ]
+}

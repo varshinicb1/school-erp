@@ -1,0 +1,11 @@
+node_modules
+.git
+.tempmediaStorage
+__pycache__
+*.pyc
+.pytest_cache
+screenshots
+SchoolOS_v1.0.0_Commercial_Release
+SchoolOS_v1.0.0_Commercial_Release.zip
+campusgrid/node_modules
+campusgrid/dist

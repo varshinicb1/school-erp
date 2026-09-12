@@ -1,0 +1,76 @@
+{
+ "actions": [],
+ "creation": "2026-09-12 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "policy_name",
+  "policy_category",
+  "concession_type",
+  "discount_percentage",
+  "fixed_discount_amount",
+  "installment_count",
+  "late_fee_per_day"
+ ],
+ "fields": [
+  {
+   "fieldname": "policy_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Policy Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "policy_category",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Category",
+   "options": "Standard Tuition\nSibling Concession\nStaff Ward Concession\nRTE Quota (100%)\nMerit Scholarship",
+   "reqd": 1
+  },
+  {
+   "fieldname": "concession_type",
+   "fieldtype": "Select",
+   "label": "Concession Type",
+   "options": "Percentage Discount\nFixed Amount Discount\nNone",
+   "default": "None"
+  },
+  {
+   "fieldname": "discount_percentage",
+   "fieldtype": "Percent",
+   "label": "Discount %"
+  },
+  {
+   "fieldname": "fixed_discount_amount",
+   "fieldtype": "Currency",
+   "label": "Fixed Discount (₹)"
+  },
+  {
+   "default": "3",
+   "fieldname": "installment_count",
+   "fieldtype": "Int",
+   "label": "Allowed Installments (Terms)"
+  },
+  {
+   "default": "50.0",
+   "fieldname": "late_fee_per_day",
+   "fieldtype": "Currency",
+   "label": "Late Fee / Day (₹)"
+  }
+ ],
+ "module": "Fees",
+ "name": "School Fee Policy",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "read": 1,
+   "write": 1,
+   "role": "Accounts Manager"
+  },
+  {
+   "read": 1,
+   "role": "Accounts User"
+  }
+ ]
+}

@@ -1,0 +1,73 @@
+{
+ "actions": [],
+ "creation": "2026-09-12 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "route_number",
+  "route_name",
+  "vehicle_registration",
+  "driver_name",
+  "driver_phone",
+  "capacity",
+  "monthly_transport_fee"
+ ],
+ "fields": [
+  {
+   "fieldname": "route_number",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Route Number",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "route_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Route Name / Coverage Area",
+   "reqd": 1
+  },
+  {
+   "fieldname": "vehicle_registration",
+   "fieldtype": "Data",
+   "label": "Bus Registration (e.g. TS09 UB 1234)"
+  },
+  {
+   "fieldname": "driver_name",
+   "fieldtype": "Data",
+   "label": "Driver Name"
+  },
+  {
+   "fieldname": "driver_phone",
+   "fieldtype": "Data",
+   "label": "Driver Contact"
+  },
+  {
+   "default": "40",
+   "fieldname": "capacity",
+   "fieldtype": "Int",
+   "label": "Seating Capacity"
+  },
+  {
+   "fieldname": "monthly_transport_fee",
+   "fieldtype": "Currency",
+   "label": "Monthly Fee (₹)"
+  }
+ ],
+ "module": "Transport",
+ "name": "Bus Route",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "read": 1,
+   "write": 1,
+   "role": "System Manager"
+  },
+  {
+   "read": 1,
+   "role": "Academic User"
+  }
+ ]
+}

@@ -1,0 +1,15 @@
+node_modules/
+.tempmediaStorage/
+__pycache__/
+*.pyc
+.pytest_cache/
+campusgrid/node_modules/
+campusgrid/dist/
+.playwright-mcp/
+.serena/
+SchoolOS_v1.0.0_Commercial_Release/
+SchoolOS_v1.0.0_Commercial_Release.zip
+*.png
+.DS_Store
+Thumbs.db
+*.log

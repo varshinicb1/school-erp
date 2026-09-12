@@ -1,0 +1,18 @@
+# Render.com Blueprint Configuration for Indian School OS
+services:
+  - type: web
+    name: indian-school-os
+    runtime: docker
+    plan: free
+    region: singapore
+    branch: main
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: PYTHONUNBUFFERED
+        value: "1"
+    disk:
+      name: school-data
+      mountPath: /app/school-os/data
+      sizeGB: 1

@@ -1,0 +1,104 @@
+{
+ "actions": [],
+ "creation": "2026-09-12 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "tc_number",
+  "student",
+  "student_name",
+  "admission_number",
+  "pen_number",
+  "apaar_id",
+  "academic_class",
+  "date_of_application",
+  "date_of_issue",
+  "reason_for_leaving",
+  "conduct_and_character",
+  "fees_cleared"
+ ],
+ "fields": [
+  {
+   "fieldname": "tc_number",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "TC Serial No",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "student",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Student",
+   "options": "Student",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "student.title",
+   "fieldname": "student_name",
+   "fieldtype": "Data",
+   "label": "Student Name"
+  },
+  {
+   "fieldname": "admission_number",
+   "fieldtype": "Data",
+   "label": "Admission Number"
+  },
+  {
+   "fieldname": "pen_number",
+   "fieldtype": "Data",
+   "label": "Student PEN"
+  },
+  {
+   "fieldname": "apaar_id",
+   "fieldtype": "Data",
+   "label": "APAAR ID"
+  },
+  {
+   "fieldname": "academic_class",
+   "fieldtype": "Link",
+   "label": "Class Last Studied",
+   "options": "Academic Class"
+  },
+  {
+   "fieldname": "date_of_application",
+   "fieldtype": "Date",
+   "label": "Date of Application"
+  },
+  {
+   "fieldname": "date_of_issue",
+   "fieldtype": "Date",
+   "label": "Date of Issue"
+  },
+  {
+   "fieldname": "reason_for_leaving",
+   "fieldtype": "Select",
+   "label": "Reason for Leaving",
+   "options": "Parent Transfer\nCompletion of Highest Class\nRelocation\nOther"
+  },
+  {
+   "default": "Good",
+   "fieldname": "conduct_and_character",
+   "fieldtype": "Data",
+   "label": "General Conduct"
+  },
+  {
+   "default": "1",
+   "fieldname": "fees_cleared",
+   "fieldtype": "Check",
+   "label": "All Dues Cleared"
+  }
+ ],
+ "module": "Certificates",
+ "name": "Transfer Certificate",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 0,
+   "read": 1,
+   "write": 1,
+   "role": "Academic User"
+  }
+ ]
+}
