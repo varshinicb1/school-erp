@@ -5,6 +5,7 @@ services:
     runtime: docker
     plan: free
     region: singapore
+    repo: https://github.com/varshinicb1/school-erp
     branch: main
     healthCheckPath: /api/v1/health
     envVars:
@@ -12,7 +13,3 @@ services:
         value: 10000
       - key: PYTHONUNBUFFERED
         value: "1"
-    disk:
-      name: school-data
-      mountPath: /app/school-os/data
-      sizeGB: 1
